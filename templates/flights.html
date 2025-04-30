@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>Upcoming Flights</title>
+</head>
+<body>
+    <h1>The list of upcoming flights</h1>
+    {% if flights %}
+        <ul>
+        {% for flight in flights %}
+            <li>
+                航空公司 Airline：{{ flight.airline_name }}，航班号 Flight：{{ flight.flight_num }}<br>
+                起飞机场 Departure Airport：{{ flight.departure_airport }}，起飞时间 Departure Time：{{ flight.departure_time }}<br>
+                降落机场 Arrival Airport：{{ flight.arrival_airport }}，降落时间 Arrival Time：{{ flight.arrival_time }}<br>
+                当前状态 Current Status：{{ flight.status }}
+            </li>
+            <br>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p>暂无即将起飞的航班 There are no upcoming flights.</p>
+    {% endif %}
+</body>
+</html>
