@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Air Ticket Reservation</title>
+	<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <header>
+        <h1>Air Ticket Reservation System</h1>
+        <nav>
+			<a href="/login">Login</a>
+			<a href="/register">Register</a>
+        </nav>
+    </header>
+
+    <main>
+        <section class="search">
+            <h2>Search Flights</h2>
+            <form>
+                <input type="text" placeholder="From City or Airport" required>
+                <input type="text" placeholder="To City or Airport" required>
+                <input type="date" required>
+                <button type="submit">Search</button>
+            </form>
+        </section>
+
+        <section class="status">
+            <h2>Check Flight Status</h2>
+            <form>
+                <input type="text" placeholder="Flight Number" required>
+                <input type="date" required>
+                <button type="submit">Check Status</button>
+            </form>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2025 Air Reservation Inc.</p>
+    </footer>
+</body>
+</html>

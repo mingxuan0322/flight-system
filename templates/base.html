@@ -1,34 +1,40 @@
-<!-- templates/base.html -->
+<!-- homepage.html -->
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}Air Ticket System{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  <title>Flight Search</title>
 </head>
 <body>
-  <header class="site-header">
-    <div class="logo">✈️ AirTicket</div>
-    <nav class="nav-bar">
-      <a href="{{ url_for('index') }}">首页</a>
-      <a href="{{ url_for('upcoming_flights') }}">航班查询</a>
-      {% if session.get('username') %}
-        <span class="nav-user">{{ session['username'] }}</span>
-        <a href="{{ url_for('logout') }}">登出</a>
-      {% else %}
-        <a href="{{ url_for('login') }}">登录</a>
-        <a href="{{ url_for('register') }}">注册</a>
-      {% endif %}
-    </nav>
-  </header>
+  <h2>Search for Flights</h2>
+  <form action="/search" method="GET">
+    <label>From City:</label>
+    <input type="text" name="from_city" required><br>
 
-  <main class="content">
-    {% block content %}{% endblock %}
-  </main>
+    <label>To City:</label>
+    <input type="text" name="to_city" required><br>
 
-  <footer class="site-footer">
-    &copy; 2025 AirTicket Reservation System
-  </footer>
+    <label>Departure Date:</label>
+    <input type="date" name="departure_date"><br>
+
+    <label>Airline (optional):</label>
+    <input type="text" name="airline"><br>
+
+    <input type="submit" value="Search">
+  </form>
+
+  {% if flights %}
+    <h3>Search Results:</h3>
+    <ul>
+      {% for flight in flights %}
+        <li>
+          {{ flight['airline_name'] }} {{ flight['flight_num'] }} |
+          {{ flight['departure_airport'] }} → {{ flight['arrival_airport'] }} |
+          {{ flight['departure_time'] }} → {{ flight['arrival_time'] }} |
+          ${{ flight['base_price'] }} | Status: {{ flight['status'] }}
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
 </body>
 </html>

@@ -1,134 +1,212 @@
-body {
-    font-family: Arial, sans-serif;
-    margin: 0;
-    padding: 0;
-    background: #f9f9f9;
-}
+/* <style> */
+    body {
+      font-family: 'Poppins', sans-serif;
+      background-color: #F4F8FB;
+      color: #333;
+    }
+    .navbar {
+        height: 60px; 
 
-header {
-    background-color: #004080;
-    color: white;
-    padding: 20px;
-    text-align: center;
-}
+      background-color: rgb(4, 60, 189);
+      box-shadow: 0 2px 4px rgba(255, 255, 255, 0.1);
+      font-size: small;
+      color: aliceblue;
+      /* padding: 0 1rem; */
 
-nav a {
-    margin: 0 10px;
-    color: white;
-    text-decoration: none;
-}
+      /* font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; */
+    }
+    .navbar-brand {
+      height: 60px; /* 匹配导航栏高度 */
+      display: flex;
+      align-items: center;
+    }
+    .navbar-brand img {
+      height: 50px;
+      margin-left: 0%;
+    }
+    .nav-link {
+      color: #d9eeff;
+      transition: all 0.3s ease;
+    }
+    .nav-link:hover {
+      color: #00AEEF;
+      transform: translateY(-3px);
+    }
 
-main {
-    padding: 20px;
-    padding-bottom: 50px; /* 增加底部 padding，避免 footer 遮挡内容 */
-}
+        /* 响应式调整（移动端） */
+    @media (max-width: 768px) {
+      .navbar {
+        height: auto; /* 移动端恢复自动高度 */
+        padding: 0.5rem 1rem;
+      }
+      
+      .navbar-brand {
+        height: 50px;
+      }
+      
+      .nav-link {
+        padding: 0.5rem 1rem !important;
+      }
+    }
+    .hero {
+      position: relative;
+      background-image: url('/static/poster.png');
+      background-size: cover;
+      background-position: center;
+      height: 400px; /* 适当调高以容纳搜索框 */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: bgZoom 20s infinite alternate ease-in-out;
+    }
+    @keyframes bgZoom {
+      from { background-size: 100%; }
+      to { background-size: 105%; }
+    }
+    /* .search-bar {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+      max-width: 900px;
+      margin-top: -50px;
+    } */
+    .search-bar {
+        position: relative;
+        top: 60%;
+        left: 40%;
+        /* width:200px; */
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+        width: 90%;
+        max-width: 1000px;
+        /* margin:0 auto; */
+        z-index: 2;
+        margin-bottom: 0.8rem; /* ✅ 添加底部间距，避免紧贴搜索结果 */
+    }
+    .flight-card {
+      background: white;
+      border-radius: 10px;
+      padding: 20px;
+      margin: 15px auto;
+      max-width: 1000px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+      transition: transform 0.3s ease;
+    }
+    .flight-card:hover {
+      transform: scale(1.02);
+      box-shadow: 0 6px 12px rgba(0,0,0,0.1);
+    }
+    .btn-primary {
+      background-color: #00AEEF;
+      border-color: #00AEEF;
+      /* transform: translate(0%, -30%); */
 
-h2 {
-    color: #004080;
-}
+      /* height:30px; */
+    }
+    .btn-primary:hover {
+      background-color: #008fcc;
+      border-color: #008fcc;
+    }
+    /* .btn-sm {
+      height: 36px;
+      
+      line-height: 20px;
+      font-size: 0.875rem;
+    } */
+    form .form-control, form .btn {
+      /* height: 90%;  保持高度一致 */
+      box-sizing: border-box;
+    }
+    
 
-form {
-    margin-bottom: 30px;
-}
 
-input, button {
-    padding: 10px;
-    margin: 5px 0;
-    display: block;
-    width: 100%;
-    max-width: 400px;
-}
+  /* login */
+  /* 登录页增强样式 */
+    .back-link {
+      display: inline-block;
+      margin-bottom: 1.5rem;
+      color: #0066cc;
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
 
-button {
-    background-color: #004080;
-    color: white;
-    border: none;
-    cursor: pointer;
-}
+    .back-link:hover {
+      text-decoration: underline;
+    }
 
-button:hover {
-    background-color: #0066cc;
-}
+    .auth-form .form-group {
+      margin-bottom: 1.2rem;
+    }
 
-/* footer {
-    background-color: #eee;
-    text-align: center;
-    padding: 10px;
-    position: fixed;
-    bottom: 0;
-    width: 100%;
-} */
-/* footer {
-    background-color: #eee;
-    text-align: center;
-    padding: 5px; 
-    font-size: 14px;
-    position: fixed;
-    bottom: 0;
-    width: 100%;
-    height: 30px;
-    line-height: 30px;
-    box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1);
-} */
+    .auth-form input {
+      /* width:fit-content; */
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 1rem;
+    }
 
-footer {
-    background-color: #eee;
-    text-align: center;
-    padding: 10px;
-    font-size: 14px;
-    margin-top: 40px; /* 给页面内容和footer之间一个空间 */
-    box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.05);
-    position: static; /* 移除 fixed */
-}
+    .auth-form select {
+      margin-bottom:5%;
+      margin-top:5%;
+      margin-left: 3%;
+      width:max-content;
+      /* width: 80%; */
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 0.8rem;
+    }
 
-/* register & login */
+    .btn-primary {
+      width: 100%;
+      padding: auto;
+      /* padding: 12px; */
+      margin-top: 0%;
+    }
 
-/* 新增认证页面样式 */
-.auth-container {
-    max-width: 500px;
-    margin: 0 auto;
-    padding: 40px 20px;
-}
+    .error-message {
+      color: #dc3545;
+      margin-top: 1rem;
+      font-size: 0.9rem;
+    }
 
-.auth-form {
-    background: white;
-    padding: 30px;
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-}
+    .staff-login {
+      margin-top: 1.5rem;
+      padding-top: 1rem;
+      border-top: 1px solid #eee;
+      text-align: center;
+      font-size: 0.9rem;
+    }
 
-.auth-form h2 {
-    margin-bottom: 25px;
-    text-align: center;
-}
-
-.nav-link {
-    margin-top: 20px;
-    text-align: center;
-}
-
-.nav-link a {
-    color: #004080;
-    text-decoration: none;
-    font-size: 0.9em;
-}
-
-.nav-link a:hover {
-    text-decoration: underline;
-}
-
-.error {
-    color: #dc3545;
-    background: #f8d7da;
-    padding: 10px;
-    border-radius: 4px;
-    margin-top: 15px;
-    font-size: 0.9em;
-}
-/* register & login */
-
+    /* 响应式调整 */
+    @media (max-width: 768px) {
+      .login-container {
+          flex-direction: column;
+      }
+      
+      .hero-section {
+          height: 200px;
+          flex: none;
+      }
+      
+      .login-section {
+          padding: 1rem;
+      }
+      
+      .login-card {
+          padding: 1.5rem;
+      }
+    }
+  /* </style> */
+  
 /* 全局基础样式 */
-body { margin:0; font-family: Arial, sans-serif; background: #f5f5f5; color:#333; }
+/* body { margin:0; font-family: Arial, sans-serif; background: #f5f5f5; color:#333; }
 .site-header, .site-footer { background:#004080; color:#fff; padding:10px; }
 .nav-bar a { color:#fff; margin:0 10px; text-decoration:none; }
 .content { padding:20px; }
@@ -141,4 +219,4 @@ body { margin:0; font-family: Arial, sans-serif; background: #f5f5f5; color:#333
 .status-delayed { color:orange; }
 .status-cancelled { color:red; }
 .btn-action { background:#0066cc; color:#fff; border:none; padding:8px 12px; border-radius:4px; cursor:pointer; }
-.btn-action:hover { background:#005bb5; }
+.btn-action:hover { background:#005bb5; } */

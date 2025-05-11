@@ -1,0 +1,160 @@
+/* Global Reset */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  
+  body {
+    font-family: "Segoe UI", sans-serif;
+    background-color: #f8f9fa;
+    color: #333;
+  }
+  
+  /* Header */
+  .main-header {
+    background-color: #ffffff;
+    padding: 1rem 2rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .logo {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #0078f0;
+  }
+  
+  .nav-links a {
+    margin-left: 1.5rem;
+    text-decoration: none;
+    color: #555;
+    font-size: 0.95rem;
+    transition: color 0.2s;
+  }
+  
+  .nav-links a:hover {
+    color: #0078f0;
+  }
+  
+  .signup {
+    font-weight: bold;
+    color: #0078f0;
+  }
+  
+  /* Banner */
+  .hero-banner {
+    background: linear-gradient(135deg, #0078f0 0%, #2daeff 100%);
+    color: white;
+    padding: 3rem 1rem;
+    text-align: center;
+  }
+  
+  .hero-content h1 {
+    font-size: 2rem;
+    margin-bottom: 0;
+  }
+  
+  /* Search Bar */
+  .search-bar {
+    background-color: #fff;
+    padding: 2rem 1rem;
+    display: flex;
+    justify-content: center;
+  }
+  
+  #flight-search {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    max-width: 900px;
+    width: 100%;
+  }
+  
+  #flight-search input,
+  #flight-search button {
+    padding: 0.8rem 1rem;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    font-size: 1rem;
+    flex: 1;
+    min-width: 180px;
+  }
+  
+  #flight-search button {
+    background-color: #0078f0;
+    color: white;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  
+  #flight-search button:hover {
+    background-color: #005fa3;
+  }
+  
+  /* Flight Results */
+  .results-container {
+    padding: 2rem 1rem;
+    max-width: 960px;
+    margin: auto;
+  }
+  
+  .flight-result {
+    display: grid;
+    grid-template-columns: 2fr 2fr 1fr auto;
+    background-color: white;
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    align-items: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    transition: transform 0.2s;
+  }
+  
+  .flight-result:hover {
+    transform: translateY(-3px);
+  }
+  
+  .flight-result .airline {
+    font-weight: bold;
+  }
+  
+  .flight-result .price {
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: #0078f0;
+  }
+  
+  .flight-result button {
+    padding: 0.5rem 1rem;
+    background-color: #ff9800;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  
+  .flight-result button:hover {
+    background-color: #e68900;
+  }
+  
+  /* Responsive */
+  @media (max-width: 768px) {
+    .flight-result {
+      grid-template-columns: 1fr;
+      gap: 0.5rem;
+      text-align: center;
+    }
+  
+    #flight-search {
+      flex-direction: column;
+    }
+  
+    .nav-links {
+      display: none; /* optional collapse nav for now */
+    }
+  }
+  
