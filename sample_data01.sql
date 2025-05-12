@@ -47,8 +47,8 @@ INSERT IGNORE INTO booking_agent_work_for (email, airline_name) VALUES
 
 /* 扩展员工权限数据 */
 INSERT IGNORE INTO airline_staff (username, password, first_name, last_name, date_of_birth, airline_name) VALUES
--- ('euro_admin@test.com', '$2b$12$euroadm...', 'Hans', 'Schmidt', '1985-05-05', 'Euro Connect'),
--- ('pacific_ops@test.com', '$2b$12$pacops...', 'Yuki', 'Tanaka', '1990-11-11', 'Pacific Wings');
+('euro_admin@test.com', '$2b$12$euroadm...', 'Hans', 'Schmidt', '1985-05-05', 'Euro Connect'),
+('pacific_ops@test.com', '$2b$12$pacops...', 'Yuki', 'Tanaka', '1990-11-11', 'Pacific Wings');
 ('staff01@test.com', 'test123', 'Hans', 'Schmidt', '1985-05-05', 'Euro Connect'),
 ('staff02@test.com', 'test123', 'Yuki', 'Tanaka', '1990-11-11', 'Pacific Wings');
 

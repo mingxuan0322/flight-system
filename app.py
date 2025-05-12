@@ -162,16 +162,17 @@ def login():
         # cursor.execute(f"SELECT * FROM {table} WHERE email = %s", (email,))
         user = cursor.fetchone()
         cursor.close()
-        print('----------------user', user)
+        print('----------------user', user,password)
+
+        # if user and check_password_hash(user['password'], password):
+        #     session['user'] = {
+        #         'email': user['email'],
+        #         'identity': identity
+        #     }
+
 
         if user and check_password_hash(user['password'], password):
-            session['user'] = {
-                'email': user['email'],
-                'identity': identity
-            }
-
-
-        if user and check_password_hash(user['password'], password):
+            print('----------------------------------------')
             session['user'] = {
                 'email': user['email'],
                 'identity': identity
@@ -224,6 +225,19 @@ def login():
         #     cursor.close()
 
     return render_template('login.html')
+
+@app.route('/customer')
+def customer_dashboard():
+    # 示例页面
+    return render_template("customer_home.html")
+
+@app.route('/agent')
+def agent_dashboard():
+    return render_template("agent_home.html")
+
+@app.route('/staff')
+def staff_dashboard():
+    return render_template("staff_home.html")
 
 #Define route for register
 
@@ -462,16 +476,50 @@ def home():
 
 	
 # #################################################################################################################
-# @app.route('/post', methods=['GET', 'POST'])
-# def post():
-# 	username = session['username']
-# 	cursor = conn.cursor()
-# 	blog = request.form['blog']
-# 	query = "INSERT INTO blog (blog_post, username) VALUES('{}', '{}')"
-# 	cursor.execute(query.format(blog, username))
-# 	conn.commit()
-# 	cursor.close()
-# 	return redirect(url_for('home'))
+# from markupsafe import Markup  # 放在文件顶部
+
+# @app.route('/rehash-all-passwords')
+# def rehash_all_passwords():
+#     cursor = conn.cursor(dictionary=True)
+#     result_log = ""
+
+#     tables = {
+#         "customer": "email",
+#         "booking_agent": "email",
+#         "airline_staff": "username"
+#     }
+
+#     for table, email_field in tables.items():
+#         try:
+#             cursor.execute(f"SELECT {email_field}, password FROM {table}")
+#             users = cursor.fetchall()
+
+#             if not users:
+#                 result_log += f"🛑 No users in table `{table}`.<br>"
+#                 continue
+
+#             for user in users:
+#                 email = user[email_field]
+#                 password = 'test123'
+
+#                 # 强制重新哈希为 pbkdf2:sha256
+#                 if password.startswith("pbkdf2:sha256:"):
+#                     result_log += f"🔒 {table} | {email} already hashed.<br>"
+#                     continue
+
+#                 new_hashed = generate_password_hash(password, method='pbkdf2:sha256')
+#                 cursor.execute(
+#                     f"UPDATE {table} SET password = %s WHERE {email_field} = %s",
+#                     (new_hashed, email)
+#                 )
+#                 result_log += f"✅ {table} | {email} rehashed to pbkdf2.<br>"
+
+#         except Exception as e:
+#             result_log += f"❌ Error in {table}: {e}<br>"
+
+#     conn.commit()
+#     cursor.close()
+#     return Markup(result_log) or "Nothing processed."
 
 # #################################################################################################################
 @app.route('/logout')

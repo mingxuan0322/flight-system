@@ -1,22 +1,51 @@
-air_ticket_flask/
-├── app.py
-├── templates/
-│   └── flights.html
-└── requirements.txt    #
+### Test Info
+'test01@customer.com'
+'test02@customer.com'
+'customer1@test.com'
+'customer2@test.com'
 
-airline → airline_staff, airplane, booking_agent_work_for, flight
+### Booking Agent
+('euro_agent@test.com', 'test123', 2001),
+('asia_agent@test.com', 'test123', 3001),
+('agent02@test.com','test123',1001),
+('agent01@test.com','test123',4001);
 
-airline_staff → permission
+### Airline Staff
+('euro_admin@test.com', 'Euro Connect'),
+('pacific_ops@test.com', 'Pacific Wings');
+('staff01@test.com', 'Euro Connect'),
+('staff02@test.com', 'Pacific Wings');
 
-airplane, airport → flight
+### Airports
+('JFK', 'New York'),
+('PVG', 'Shanghai'),
+('LAX', 'Los Angeles'),
+('HND', 'Tokyo'),
+('LHR', 'London'),
+('DXB', 'Dubai'),
+('SFO', 'San Francisco'),
+('CDG', 'Paris'),
+('SIN', 'Singapore'),
+('AMS', 'Amsterdam'),    -- 荷兰
+('ICN', 'Seoul'),        -- 韩国
+('SYD', 'Sydney'),       -- 澳大利亚
+('DEL', 'Delhi'),        -- 印度
+('IST', 'Istanbul'),     -- 土耳其
+('GRU', 'São Paulo'),    -- 巴西
+('MEX', 'Mexico City'),  -- 墨西哥
+('CPT', 'Cape Town');  
 
-flight → ticket → purchases ← customer
-
-booking_agent → booking_agent_work_for ← airline
 
 
+### functions
 
-### 📦 Entities & Relationships
+1. View Public Info
+2. Login: 3 types of user login
+3. Register: 3 types of user registrations (Customer, Booking agent, Airline Staff) option via forms.
+
+
+
+### Entities & Relationships
 
 #### airline
 - `airline_name`: Primary key
