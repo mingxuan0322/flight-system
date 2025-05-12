@@ -144,8 +144,19 @@
                         </td>
                           
                     </tr> -->
-                    <td style="text-align: center; vertical-align: middle;">
+                    <!-- <td style="text-align: center; vertical-align: middle;">
                         <a href="{{ url_for('login') }}" class="btn btn-sm btn-primary" style="min-width: 80px;">Book/More info</a>
+                      </td> -->
+                      <td style="text-align: center; vertical-align: middle;">
+                        {% if user %}
+                          {% if identity == 'customer' or identity=='agent' %}
+                            <a href="{{ url_for('book_flight', airline_name=flight.airline_name,flight_num=flight.flight_num) }}" class="btn btn-sm btn-success">Book</a>
+                          {% elif identity == 'staff' %}
+                            <span class="text-muted">Staff View</span>
+                          {% endif %}
+                        {% else %}
+                          <a href="{{ url_for('login') }}" class="btn btn-sm btn-primary">Login to Book</a>
+                        {% endif %}
                       </td>
                       
                       

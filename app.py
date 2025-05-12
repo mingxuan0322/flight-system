@@ -49,15 +49,26 @@ except Exception as e:
 @app.route('/')
 def hello():
     # username = session.get('username')  # ✅ 如果没登录会返回 None，不报错
+    user = session.get('user')
     username = session.get('username')
     # print("----------------Hello------------")
 
-    if not username:
-        print("----------------index------------")
+    # if not username:
+    #     print("----------------index------------")
 
-        return redirect(url_for('search'))
+    #     return redirect(url_for('search'))
     print("----------------homepage------------")
-    return redirect(url_for('home'))
+
+    if user and user['identity'] == 'customer':
+        return redirect(url_for('customer_dashboard'))
+    elif user and user['identity'] == 'agent':
+        return redirect(url_for('agent_dashboard'))
+    elif user and user['identity'] == 'staff':
+        return redirect(url_for('staff_dashboard'))
+    else:
+        print("----------------index------------")
+        return redirect(url_for('search'))
+         
     
     # if 'username' in session:
     #     return redirect(url_for('home'))
@@ -75,7 +86,7 @@ def search():
     departure_date = request.args.get('date', '').strip()
 
     if not departure_airport and not arrival_airport and not departure_date:
-        flash("请填写至少一个搜索条件", "danger")
+        flash("Please fill at least one search field", "danger")
         return render_template('index.html', flights=flights)
     
     try:
@@ -103,9 +114,9 @@ def search():
         cursor.execute(query, params)
         flights = cursor.fetchall()
 
-        print("-------查询结果数量:", len(flights))
-        print("-------SQL:", query)
-        print("-------Params:", params)
+        # print("-------查询结果数量:", len(flights))
+        # print("-------SQL:", query)
+        # print("-------Params:", params)
 
     except Exception as e:
         flash("查询失败，请检查搜索条件或稍后重试", "danger")
@@ -119,15 +130,18 @@ def search():
 
 
         cursor.close()
-
-    return render_template('index.html', flights=flights)
+    user = session.get('user') 
+    identity=user['identity'] if user else ''
+    return render_template('index.html', flights=flights,user=user,identity=identity)
     # return render_template('index.html', flights=flights,username=session.get('username'))
 
 # #################################################################################################################
-@app.route('/book/<airline_num>/<int:flight_num>')
-def book_flight(airline_num, flight_num):
+@app.route('/book/<airline_name>/<int:flight_num>')
+# @app.route('/book')
+def book_flight(airline_name, flight_num):
     # 实现订票逻辑
-    return f"Booking page for flight {airline_num} #{flight_num}"
+    print('-----------------',airline_name,flight_num)
+    return f"Booking page for flight {airline_name} #{flight_num}"
     # return redirect(url_for('home'))
 
 # #################################################################################################################
@@ -288,6 +302,13 @@ def agent_dashboard():
 def staff_dashboard():
     return render_template("staff_home.html")
 
+@app.route('/customer_purchase')
+def customer_purchase():
+     return render_template("customer_purchase.html")
+@app.route('/agent_purchase')
+def agent_purchase():
+     return render_template("agent_purchase.html")
+@app.route('/purchase')
 #Define route for register
 
 # #################################################################################################################
@@ -512,16 +533,22 @@ def registerAuth():
 # #################################################################################################################
 @app.route('/home')
 def home():
-    username = session.get('username')
-    if not username:
-        return redirect(url_for('index'))
-    # username = session['username']
-    cursor = conn.cursor()
-    query = "SELECT * FROM ticket WHERE customer = '{}' ORDER BY purchase_date DESC"
-    cursor.execute(query.format(username))
-    tickets = cursor.fetchall()
-    cursor.close()
-    return render_template('home.html', username=username, tickets=tickets)
+    user = session.get('user')
+    if user['identity'] == 'customer':
+        return redirect(url_for('customer_dashboard'))
+    elif user['identity'] == 'agent':
+        return redirect(url_for('agent_dashboard'))
+    elif user['identity'] == 'staff':
+        return redirect(url_for('staff_dashboard'))
+    # if not username:
+    #     return redirect(url_for('index'))
+    # # username = session['username']
+    # cursor = conn.cursor()
+    # query = "SELECT * FROM ticket WHERE customer = '{}' ORDER BY purchase_date DESC"
+    # cursor.execute(query.format(username))
+    # tickets = cursor.fetchall()
+    # cursor.close()
+    # return render_template('home.html', username=username, tickets=tickets)
 
 	
 # #################################################################################################################
@@ -607,49 +634,6 @@ def upcoming_flights():
 	    # conn.commit()
         cursor.close()
     return render_template('flights.html', flights=flights)
-
-#################################################################################################################
-# @app.route('/search', methods=['GET'])
-# def search_flights():
-#     # 获取表单数据
-#     departure_airport = request.args.get('from')
-#     arrival_airport = request.args.get('to')
-#     departure_date = request.args.get('date')
-#     cursor = conn.cursor()
-#     query = """
-#         SELECT flight_num, airline_name, departure_time, arrival_time, departure_airport, arrival_airport, status
-#         FROM flight 
-#         WHERE departure_airport LIKE %s AND arrival_airport LIKE %s AND DATE(departure_time) = %s
-#     """
-#     cursor.execute(query, (f"%{departure_airport}%", f"%{arrival_airport}%", departure_date))
-#     flights = cursor.fetchall()
-#     cursor.close()
-#     return render_template('search.html', flights=flights)
-#     # 调用数据库查询函数（你需要实现这个函数来根据条件查询航班）
-#     flights = get_flights(departure_airport, arrival_airport, departure_date)
-
-#     return render_template('search.html', flights=flights)
-
-# def get_flights(departure_airport, arrival_airport, departure_date):
-#     # 这里根据你的数据库查询逻辑获取航班数据
-#     # 伪代码：返回符合条件的航班数据列表
-#     return [
-#         {
-#             'flight_num': 'AA123',
-#             'airline_name': 'Air Freedom',
-#             'departure_airport': departure_airport,
-#             'departure_time': '2025-06-15 10:00',
-#             'arrival_airport': arrival_airport,
-#             'arrival_time': '2025-06-15 14:00',
-#             'status': 'On-Time'
-#         },
-#         # 其他航班数据
-#     ]
-
-
-
-
-
 
 
 # app.secret_key = 'some key that you will never guess'
