@@ -40,6 +40,8 @@
 ### functions
 
 1. View Public Info
+    ``` Search for upcoming flights ```
+    ``` ***see the flights status ```
 2. Login: 3 types of user login
 3. Register: 3 types of user registrations (Customer, Booking agent, Airline Staff) option via forms.
 

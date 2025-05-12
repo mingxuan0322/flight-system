@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, url_for, flash, redirect, session
 import mysql.connector
-from datetime import datetime
+from datetime import datetime, timedelta
+from collections import defaultdict
 
 from werkzeug.security import generate_password_hash, check_password_hash
 # from datetime import datetime, timedelta
@@ -228,8 +229,56 @@ def login():
 
 @app.route('/customer')
 def customer_dashboard():
-    # 示例页面
-    return render_template("customer_home.html")
+    if 'user' not in session or session['user'].get('identity') != 'customer':
+        flash("Access denied", "danger")
+        return redirect(url_for('login'))
+
+    email = session['user']['email']
+    cursor = conn.cursor(dictionary=True)
+
+    # 获取未来的航班
+    cursor.execute("""
+        SELECT f.flight_num, f.airline_name, f.departure_time, f.arrival_time, f.status
+        FROM flight f
+        JOIN ticket t ON f.flight_num = t.flight_num AND f.airline_name = t.airline_name
+        JOIN purchases p ON t.ticket_id = p.ticket_id
+        WHERE p.customer_email = %s AND f.departure_time >= NOW()
+        ORDER BY f.departure_time ASC
+    """, (email,))
+    flights = cursor.fetchall()
+
+    # 获取过去一年的总消费 & 按月消费
+    one_year_ago = datetime.now() - timedelta(days=365)
+    cursor.execute("""
+        SELECT f.price, p.purchase_date
+        FROM flight f
+        JOIN ticket t ON f.flight_num = t.flight_num AND f.airline_name = t.airline_name
+        JOIN purchases p ON t.ticket_id = p.ticket_id
+        WHERE p.customer_email = %s AND p.purchase_date >= %s
+    """, (email, one_year_ago))
+
+    purchases = cursor.fetchall()
+    total_spent = sum([float(p['price']) for p in purchases])
+
+    monthly_spending = defaultdict(float)
+    for p in purchases:
+        month = p['purchase_date'].strftime('%Y-%m')
+        monthly_spending[month] += float(p['price'])
+
+    cursor.execute("SELECT name FROM customer WHERE email = %s", (email,))
+    customer = cursor.fetchone()
+
+    cursor.close()
+
+    return render_template(
+        'customer_home.html',
+        user=customer,
+        flights=flights,
+        total_spent=round(total_spent, 2),
+        monthly_spending=dict(monthly_spending)
+    )
+
+    # return render_template("customer_home.html")
 
 @app.route('/agent')
 def agent_dashboard():

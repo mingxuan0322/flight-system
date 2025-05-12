@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Customer Dashboard - ZEPHRA Air</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <header class="main-header">
+        <h1>Welcome, {{ user.name }}</h1>
+        <p>Explore your dashboard below</p>
+        <a href="/logout" class="btn btn-secondary">Logout</a>
+    </header>
+
+    <main class="container">
+        <section class="dashboard-section">
+            <h2>📅 Upcoming Flights</h2>
+            {% if flights %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Flight #</th>
+                            <th>Airline</th>
+                            <th>Departure</th>
+                            <th>Arrival</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for flight in flights %}
+                        <tr>
+                            <td>{{ flight.flight_num }}</td>
+                            <td>{{ flight.airline_name }}</td>
+                            <td>{{ flight.departure_time }}</td>
+                            <td>{{ flight.arrival_time }}</td>
+                            <td>{{ flight.status }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p>No upcoming flights found.</p>
+            {% endif %}
+        </section>
+
+        <section class="dashboard-section">
+            <h2>🔍 Search for Flights</h2>
+            <form method="get" action="/index">
+                <input type="text" name="from" placeholder="From Airport/City">
+                <input type="text" name="to" placeholder="To Airport/City">
+                <input type="date" name="date">
+                <button type="submit" class="btn btn-primary">Search</button>
+            </form>
+        </section>
+
+        <section class="dashboard-section">
+            <h2>🛒 Purchase Ticket</h2>
+            <p>You can search above and proceed to booking from the results.</p>
+        </section>
+
+        <section class="dashboard-section">
+            <h2>💰 Spending Summary</h2>
+            <p>Total spent in past year: ${{ total_spent }}</p>
+            <ul>
+                {% for month, amount in monthly_spending.items() %}
+                <li>{{ month }}: ${{ amount }}</li>
+                {% endfor %}
+            </ul>
+        </section>
+    </main>
+</body>
+</html>

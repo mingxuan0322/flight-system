@@ -77,11 +77,12 @@
 
                 <!-- 主登录表单 -->
                 <h2>Welcome Back</h2>
-                <form action="/loginAuth" method="POST" class="auth-form">
+                <form action="/login" method="POST" class="auth-form">
+                <!-- <form action="/loginAuth" method="POST" class="auth-form"> -->
                     
                     <div class="form_group">
-                        <label for="login_identity" >Log in as:</label>
-                        <select id="login_identity" name="login_identity" required>
+                        <label for="identity" >Log in as:</label>
+                        <select id="identity" name="identity" required>
                             <option value="" disabled selected class="text-muted">Select your role</option>
                             <option value="customer">Customer</option>
                             <option value="agent">Agent</option>
@@ -98,14 +99,25 @@
                     </div>
                     <div class="form-group">
                         <!-- <label for="password" >Password:</label> -->
-                        <input type="password" 
-                               name="password" 
-                               placeholder="Your password"
-                               required>
                         <!-- <input type="password" 
                                name="password" 
-                               placeholder="Password"
+                               placeholder="Your password"
                                required> -->
+                            <div class="form-group position-relative">
+                            <input type="password" 
+                                    name="password" 
+                                    id="password"
+                                    class="form-control"
+                                    placeholder="Your password"
+                                    required>
+                            
+                            <!-- 小眼睛按钮 -->
+                            <span onclick="togglePassword()" 
+                                    class="position-absolute top-50 end-0 translate-middle-y me-3" 
+                                    style="cursor: pointer; z-index: 2;">
+                                👁
+                            </span>
+                            </div>
                     </div>
                     <div class="form_group">
                         <button type="submit" class="btn btn-primary w-100">Sign In</button>
@@ -135,5 +147,12 @@
             </div>
         </div>
     </div>
+    <script>
+        function togglePassword() {
+          const pwd = document.getElementById("password");
+          pwd.type = pwd.type === "password" ? "text" : "password";
+        }
+      </script>
+      
 </body>
 </html>
