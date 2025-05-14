@@ -376,6 +376,54 @@ def staff_dashboard():
 
     return render_template("staff_home.html")
 
+# 添加机场路由
+@app.route('/staff/add_airport', methods=['GET', 'POST'])
+@require_permission('Admin')
+def add_airport():
+    if request.method == 'POST':
+        airport_name = request.form['airport_name'].strip()
+        city = request.form['city'].strip()
+        
+        try:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO airport (airport_name, airport_city)
+                VALUES (%s, %s)
+            """, (airport_name, city))
+            conn.commit()
+            flash(f"机场 {airport_name} 添加成功", "success")
+        except mysql.connector.IntegrityError:
+            conn.rollback()
+            flash("机场已存在", "danger")
+        except Exception as e:
+            conn.rollback()
+            flash(f"数据库错误: {str(e)}", "danger")
+        finally:
+            cursor.close()
+        return redirect(url_for('staff_dashboard'))
+
+    return render_template('staff_add_airport.html')
+
+# 权限验证装饰器增强版
+def require_permission(permission=None):
+    def decorator(f):
+        @wraps(f)
+        def wrapped(*args, **kwargs):
+            if 'user' not in session:
+                return redirect(url_for('login'))
+                
+            user = session['user']
+            if user['identity'] != 'staff':
+                flash("员工专属功能", "danger")
+                return redirect(url_for('home'))
+
+            if permission and permission not in user.get('permissions', []):
+                flash("权限不足", "danger")
+                return redirect(url_for('staff_dashboard'))
+            
+            return f(*args, **kwargs)
+        return wrapped
+    return decorator
 
 @app.route('/staff/add_airplane', methods=['POST'])
 @require_permission('Admin')

@@ -1,71 +1,86 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Customer Dashboard - ZEPHRA Air</title>
-    <link rel="stylesheet" href="/static/css/style.css">
+    <!-- 共用头部与客户仪表盘相同 -->
+    <title>Staff Dashboard - ZEPHRA Air</title>
+    <style>
+        .staff-actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+        .admin-only {
+            border-left: 3px solid #dc3545;
+            padding-left: 1rem;
+        }
+    </style>
 </head>
 <body>
-    <header class="main-header">
-        <h1>Welcome, {{ user.name }}</h1>
-        <p>Explore your dashboard below</p>
-        <a href="/logout" class="btn btn-secondary">Logout</a>
-    </header>
+    <nav class="navbar navbar-expand-lg px-4 fixed-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/"><img src="/static/logo.png" alt="Logo"></a>
+            <div class="ms-auto d-flex align-items-center gap-3">
+                <span class="text-white">员工面板</span>
+                <a class="nav-link text-white" href="/staff/flights">航班管理</a>
+                {% if 'Admin' in session.user.permissions %}
+                <div class="admin-only">
+                    <a class="nav-link text-white" href="/staff/add_airport">添加机场</a>
+                    <a class="nav-link text-white" href="/staff/add_airplane">添加飞机</a>
+                </div>
+                {% endif %}
+                <a class="nav-link btn text-white" href="/logout">退出</a>
+            </div>
+        </div>
+    </nav>
 
     <main class="container">
-        <section class="dashboard-section">
-            <h2>📅 Upcoming Flights</h2>
-            {% if flights %}
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Flight #</th>
-                            <th>Airline</th>
-                            <th>Departure</th>
-                            <th>Arrival</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for flight in flights %}
-                        <tr>
-                            <td>{{ flight.flight_num }}</td>
-                            <td>{{ flight.airline_name }}</td>
-                            <td>{{ flight.departure_time }}</td>
-                            <td>{{ flight.arrival_time }}</td>
-                            <td>{{ flight.status }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            {% else %}
-                <p>No upcoming flights found.</p>
-            {% endif %}
-        </section>
-
-        <section class="dashboard-section">
-            <h2>🔍 Search for Flights</h2>
-            <form method="get" action="/index">
-                <input type="text" name="from" placeholder="From Airport/City">
-                <input type="text" name="to" placeholder="To Airport/City">
-                <input type="date" name="date">
-                <button type="submit" class="btn btn-primary">Search</button>
-            </form>
-        </section>
-
-        <section class="dashboard-section">
-            <h2>🛒 Purchase Ticket</h2>
-            <p>You can search above and proceed to booking from the results.</p>
-        </section>
-
-        <section class="dashboard-section">
-            <h2>💰 Spending Summary</h2>
-            <p>Total spent in past year: ${{ total_spent }}</p>
-            <ul>
-                {% for month, amount in monthly_spending.items() %}
-                <li>{{ month }}: ${{ amount }}</li>
+        <!-- 操作状态提示 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                <div class="alert alert-{{ category }} mt-3">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
                 {% endfor %}
-            </ul>
+            {% endif %}
+        {% endwith %}
+
+        <section class="staff-actions">
+            <!-- 航班管理模块 -->
+            <div class="dashboard-section">
+                <h2>✈️ 航班管理</h2>
+                <form action="/staff/flights" method="get">
+                    <div class="mb-3">
+                        <label>起始日期</label>
+                        <input type="date" name="start" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label>结束日期</label>
+                        <input type="date" name="end" class="form-control">
+                    </div>
+                    <button type="submit" class="btn btn-primary">查询航班</button>
+                </form>
+            </div>
+
+            <!-- 机场管理模块（仅管理员可见） -->
+            {% if 'Admin' in session.user.permissions %}
+            <div class="dashboard-section admin-only">
+                <h2>🏗️ 机场管理</h2>
+                <form action="/staff/add_airport" method="post">
+                    <div class="mb-3">
+                        <label>机场名称</label>
+                        <input type="text" name="airport_name" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label>所在城市</label>
+                        <input type="text" name="city" class="form-control" required>
+                    </div>
+                    <button type="submit" class="btn btn-danger">添加新机场</button>
+                </form>
+            </div>
+            {% endif %}
         </section>
     </main>
 </body>
