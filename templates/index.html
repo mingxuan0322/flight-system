@@ -161,7 +161,7 @@
                       <td style="text-align: center; vertical-align: middle;">
                         {% if user %}
                           {% if identity == 'customer' or identity=='agent' %}
-                            <a href="{{ url_for('book_flight', airline_name=flight.airline_name,flight_num=flight.flight_num) }}" class="btn btn-sm btn-success">Book</a>
+                            <a href="{{ url_for('book_flight', airline_name=flight.airline_name, flight_num=flight.flight_num) }}" class="btn btn-sm btn-success">Book</a>
                           {% elif identity == 'staff' %}
                             <span class="text-muted">Staff View</span>
                           {% endif %}

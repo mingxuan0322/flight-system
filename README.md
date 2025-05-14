@@ -63,7 +63,6 @@
 ('Polar Express', 201, 'HND', '2024-03-20 08:00:00', 'CPT', '2024-03-20 23:30:00', 3299, 'on-time', 1),
 ('Oceania Air', 301, 'SYD', '2024-04-01 09:00:00', 'SFO', '2024-04-01 04:00:00', 2899, 'on-time', 1);
 
-
 ### ticket
 (10005, 'Demo Airlines', 103),
 (10006, 'Demo Airlines', 103),
@@ -79,6 +78,17 @@
 (30001, 'customer1@test.com', NULL, '2024-02-28'),
 (30002, 'test02@customer.com', 2001, '2024-03-01');
 
+
+
+### staff
+('euro_admin@test.com', '$2b$12$euroadm...', 'Hans', 'Schmidt', '1985-05-05', 'Euro Connect'),
+('pacific_ops@test.com', '$2b$12$pacops...', 'Yuki', 'Tanaka', '1990-11-11', 'Pacific Wings');
+('staff01@test.com', 'test123', 'Hans', 'Schmidt', '1985-05-05', 'Euro Connect'),
+('staff02@test.com', 'test123', 'Yuki', 'Tanaka', '1990-11-11', 'Pacific Wings');
+
+### ad
+('euro_admin@test.com', 'Admin'),
+('pacific_ops@test.com', 'Operator');
 ### functions
 
 1. View Public Info

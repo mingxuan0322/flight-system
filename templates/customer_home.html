@@ -139,7 +139,7 @@
             {% endif %}
         </section>
 
-        <section class="dashboard-section">
+        <section class="dashboard-section & Purchase">
             <h2>🔍 Search for Flights</h2>
             <form method="get" action="/index">
                 <input type="text" name="from" placeholder="From Airport/City">
@@ -149,10 +149,10 @@
             </form>
         </section>
 
-        <section class="dashboard-section">
+        <!-- <section class="dashboard-section">
             <h2>🛒 Purchase Ticket</h2>
             <p>You can search above and proceed to booking from the results.</p>
-        </section>
+        </section> -->
 
         <section class="dashboard-section">
             <h2>💰 Spending Summary</h2>
@@ -162,6 +162,11 @@
                 <li>{{ month }}: ${{ amount }}</li>
                 {% endfor %}
             </ul>
+            {% if spending_chart_url %}
+                <img src="{{ spending_chart_url }}" alt="Spending Chart" class="img-fluid mt-3"/>
+            {% else %}
+                <p class="text-muted">No chart data available.</p>
+            {% endif %}
         </section>
     </main>
 </body>

@@ -3,7 +3,9 @@ import mysql.connector
 from datetime import datetime, timedelta
 from collections import defaultdict
 from functools import wraps
-
+import matplotlib.pyplot as plt
+import io
+import base64
 import hashlib 
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -29,6 +31,7 @@ except Exception as e:
     print(">>> Database connection failed:", e)
     exit(1)
 
+
 def require_permission(permission=None):
     def decorator(f):
         @wraps(f)
@@ -36,13 +39,14 @@ def require_permission(permission=None):
             if 'user' not in session:
                 return redirect(url_for('login'))
                 
-            user_type = session['user']['identity']
-            
-            # 员工权限检查
-            if user_type == 'staff' and permission:
-                if permission not in session['user'].get('permissions', []):
-                    flash("Insufficient permissions", "danger")
-                    return redirect(url_for('staff_dashboard'))
+            user = session['user']
+            if user['identity'] != 'staff':
+                flash("admin only", "danger")
+                return redirect(url_for('home'))
+
+            if permission and permission not in user.get('permissions', []):
+                flash("Insufficient authority", "danger")
+                return redirect(url_for('staff_dashboard'))
             
             return f(*args, **kwargs)
         return wrapped
@@ -151,313 +155,540 @@ def search():
     # return render_template('index.html', flights=flights,username=session.get('username'))
 
 # #################################################################################################################
-@app.route('/book/<airline_name>/<int:flight_num>')
-# @app.route('/book')
+@app.route('/book/<airline_name>/<int:flight_num>', methods=['GET', 'POST'])
 def book_flight(airline_name, flight_num):
-    # 实现订票逻辑
-    print('-----------------',airline_name,flight_num)
-    return f"Booking page for flight {airline_name} #{flight_num}"
-    # return redirect(url_for('home'))
+    user = session.get('user')
+    if not user or user['identity'] != 'customer':
+        flash("Only customers can purchase tickets. Please log in.", "warning")
+        return redirect(url_for('login'))
+
+    customer_email = user['email']
+    cursor = conn.cursor(dictionary=True)
+
+    # 查询航班信息
+    flight_query = """
+        SELECT * FROM flight 
+        WHERE airline_name = %s AND flight_num = %s
+    """
+    cursor.execute(flight_query, (airline_name, flight_num))
+    flight = cursor.fetchone()
+
+    if not flight:
+        flash("Flight not found.", "danger")
+        return redirect(url_for('search'))
+
+    if request.method == 'POST':
+        # 生成唯一 ticket_id（你可以换成自增或UUID）
+        import random
+        ticket_id = random.randint(100000, 999999)
+
+        try:
+            cursor.execute(
+                "INSERT INTO ticket (ticket_id, airline_name, flight_num) VALUES (%s, %s, %s)",
+                (ticket_id, airline_name, flight_num)
+            )
+            cursor.execute(
+                "INSERT INTO purchases (ticket_id, customer_email, purchase_date) VALUES (%s, %s, CURDATE())",
+                (ticket_id, customer_email)
+            )
+            conn.commit()
+            flash("Purchase successful!", "success")
+            return redirect(url_for('customer_dashboard'))
+        except Exception as e:
+            conn.rollback()
+            flash(f"Error procesasing your purchase: {e}", "danger")
+            return redirect(url_for('search'))
+        finally:
+            cursor.close()
+
+    cursor.close()
+    return render_template("book.html", flight=flight)
 
 #ok#################################################################################################################
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     user = session.get('user')
-    print("----------------login------------")
-
-    if user and user['identity'] == 'customer':
-        return redirect(url_for('customer_dashboard'))
-    elif user and user['identity'] == 'agent':
-        return redirect(url_for('agent_dashboard'))
-    elif user and user['identity'] == 'staff':
-        return redirect(url_for('staff_dashboard'))
+    if user:
+        # 登录状态下重定向
+        return redirect(url_for(f"{user['identity']}_dashboard"))
 
     if request.method == 'POST':
-        #get what user input in the login page
         identity = request.form.get('identity')
         email = request.form.get('username').lower().strip()
-        # email = request.form.get('login_email').lower().split('@')[0] + '@' + request.form.get('login_email').split('@')[1]
-        password = request.form.get('password').strip()  #这里get到的密码应该是输入进去什么就是什么，输入1这里就是1
-        
-        print(identity, email, password)
+        password = request.form.get('password').strip()
 
-        #通过identity定位我从哪个table里面查找我的用户 & agent中时username而不是email
         tables = {
             'customer': ('customer', 'email'),
             'agent': ('booking_agent', 'email'),
             'staff': ('airline_staff', 'username')
         }
+
         if identity not in tables:
             flash("Invalid role selected", "danger")
-            return redirect(url_for('login'), error="Invalid role")
-            # return render_template("login.html", error="Invalid role")
+            return redirect(url_for('login'))
 
-        table,id_field  = tables[identity]
+        table, id_field = tables[identity]
         cursor = conn.cursor(dictionary=True)
+
         try:
-            # 获取用户记录
-            cursor.execute(f"""
-                SELECT *, password AS hash 
-                FROM {table} 
-                WHERE {id_field} = %s
-            """, (email,))
+            cursor.execute(f"SELECT *, password AS hash FROM {table} WHERE {id_field} = %s", (email,))
             user = cursor.fetchone()
 
-            # 验证密码
             if user and check_password_hash(user['hash'], password):
-                session['user'] = {
+                session_data = {
                     'email': user.get('email') or user['username'],
-                    'identity': identity,
+                    'identity': identity
                 }
+
+                if identity == 'agent':
+                    session_data['agent_id'] = user['booking_agent_id']
+                    cursor.execute("SELECT airline_name FROM booking_agent_work_for WHERE email = %s", (email,))
+                    rows = cursor.fetchall()
+                    session_data['airline_name'] = [r['airline_name'] for r in rows]
+
+                elif identity == 'staff':
+                    session_data['airline_name'] = user.get('airline_name')
+                    cursor.execute("SELECT permission_type FROM permission WHERE username = %s", (email,))
+                    perms = cursor.fetchall()
+                    session_data['permissions'] = [p['permission_type'] for p in perms]
+
+                session['user'] = session_data
                 flash("Login successful!", "success")
                 return redirect(url_for('home'))
             else:
                 flash("Invalid credentials", "danger")
-                
+
         except mysql.connector.Error as err:
             flash(f"Database error: {err.msg}", "danger")
         finally:
             cursor.close()
 
-    return render_template('login.html')    
-    #     query = f"SELECT * FROM {table} WHERE email = %s"
-    #     cursor.execute(query, (email,))
-    #     # cursor.execute(f"SELECT * FROM {table} WHERE email = %s", (email,))
-    #     user = cursor.fetchone()
-    #     cursor.close()
-    #     print('----------------user', user,password)
-
-    #     # if user and check_password_hash(user['password'], password):
-    #     #     session['user'] = {
-    #     #         'email': user['email'],
-    #     #         'identity': identity
-    #     #     }
-
-
-    #     if user and check_password_hash(user['password'], password):
-    #         print('----------------------------------------')
-    #         session['user'] = {
-    #             'email': user['email'],
-    #             'identity': identity
-    #         }
-
-    #         #######################################
-    #         where=session.get('action')
-    #         airline=session.get('airline_name')
-    #         flight=session.get('flight_num')
-    #         if where == 'book':
-    #             return redirect(url_for(book_flight,),airline_name=airline,flight_num=flight)
-
-
-    #         flash("Login successful!", "success")
-    #         print(f"Redirecting to {identity}_dashboard test")
-
-    #         if identity == 'customer':
-    #             print(f"Redirecting to {identity}_dashboard")
-    #             return redirect(url_for('customer_dashboard'))
-    #             # print(f"Redirecting to {identity}_dashboard")
-    #         elif identity == 'agent':
-    #             session['user']['agent_id'] = user['booking_agent_id']
-    #             print(session)
-    #             print(f"Redirecting to {identity}_dashboard")
-    #             return redirect(url_for('agent_dashboard'))
-    #         elif identity == 'staff':
-    #             session['user']['airline_name'] = user['airline_name']
-    #             cursor.execute("SELECT permission_type FROM permission WHERE email = %s", (email,))
-    #             permissions = cursor.fetchall()
-    #             # print("permission get from database",permissions)
-
-    #             if permissions:
-    #                 # 提取权限类型的值
-    #                 session['user']['permissions'] = [permission['permission_type'] for permission in permissions]
-    #             else:
-    #                 session['user']['permissions'] = []  # 没有权限时为空列表
-    #             # print("permissions after processing:", session['user']['permissions'])   
-                             
-    #             # 权限为空 设置一个默认值
-    #             if not session['user']['permissions']:
-    #                 session['user']['permissions'] = ['None']
-    
-    #             print(session)
-    #             print(f"Redirecting to {identity}_dashboard")
-
-    #             return redirect(url_for('staff_dashboard'))
-    #     else:
-    #         # 登录失败
-    #         flash("Invalid email or password. Please try again.", "error")
-    #         return redirect(url_for('login'))
-        
-    #     # except mysql.connector.Error as err:
-    #     #     print(f"Database error: {err}")
-    #     #     flash("Database error. Please try again later.", "error")
-    #     #     return redirect(url_for('login'))
-    #     # finally:
-    #     #     print('login-finally')
-    #     #     cursor.close()
-
-    # # return render_template('login.html')
+    return render_template('login.html')
+   
 # #################################################################################################################
 @app.route('/customer')
 def customer_dashboard():
-    if 'user' not in session or session['user'].get('identity') != 'customer':
-        flash("Access denied", "danger")
+    user = session.get('user')
+    if not user or user['identity'] != 'customer':
         return redirect(url_for('login'))
 
-    email = session['user']['email']
+    email = user['email']
     cursor = conn.cursor(dictionary=True)
 
-    # 获取未来的航班
+    # 获取 upcoming flights
     cursor.execute("""
-        SELECT f.flight_num, f.airline_name, f.departure_time, f.arrival_time, f.status
-        FROM flight f
-        JOIN ticket t ON f.flight_num = t.flight_num AND f.airline_name = t.airline_name
-        JOIN purchases p ON t.ticket_id = p.ticket_id
-        WHERE p.customer_email = %s AND f.departure_time >= NOW()
-        ORDER BY f.departure_time ASC
+        SELECT f.*
+        FROM purchases p
+        JOIN ticket t ON p.ticket_id = t.ticket_id
+        JOIN flight f ON t.airline_name = f.airline_name AND t.flight_num = f.flight_num
+        WHERE p.customer_email = %s AND f.departure_time > NOW()
+        ORDER BY f.departure_time
     """, (email,))
     flights = cursor.fetchall()
 
-    # 增加日期范围查询参数
-    start_date = request.args.get('start', (datetime.now() - timedelta(days=365)).strftime('%Y-%m-%d'))
-    end_date = request.args.get('end', datetime.now().strftime('%Y-%m-%d'))
-    # 获取过去一年的总消费 & 按月消费
-    one_year_ago = datetime.now() - timedelta(days=365)
+    # 获取过去一年消费
     cursor.execute("""
-        SELECT 
-            SUM(f.price) AS total,
-            DATE_FORMAT(p.purchase_date, '%%Y-%%m') AS month,
-            COUNT(*) AS tickets
+        SELECT SUM(f.price) as total_spent
         FROM purchases p
-        JOIN ticket t USING(ticket_id)
-        JOIN flight f USING(airline_name, flight_num)
-        WHERE p.customer_email = %s
-          AND p.purchase_date BETWEEN %s AND %s
-        GROUP BY month
-        ORDER BY month
-    """, (email, start_date, end_date))
-    # spending_data = cursor.fetchall()
-    purchases = cursor.fetchall()
-    total_spent = sum([float(p['price']) for p in purchases])
+        JOIN ticket t ON p.ticket_id = t.ticket_id
+        JOIN flight f ON t.airline_name = f.airline_name AND t.flight_num = f.flight_num
+        WHERE p.customer_email = %s AND p.purchase_date >= DATE_SUB(CURDATE(), INTERVAL 1 YEAR)
+    """, (email,))
+    total_spent = cursor.fetchone()['total_spent'] or 0
 
-    monthly_spending = defaultdict(float)
-    for p in purchases:
-        month = p['purchase_date'].strftime('%Y-%m')
-        monthly_spending[month] += float(p['price'])
+    # 月度消费明细
+    cursor.execute("""
+        SELECT DATE_FORMAT(p.purchase_date, '%%Y-%%m') as month, SUM(f.price) as amount
+        FROM purchases p
+        JOIN ticket t ON p.ticket_id = t.ticket_id
+        JOIN flight f ON t.airline_name = f.airline_name AND t.flight_num = f.flight_num
+        WHERE p.customer_email = %s AND p.purchase_date >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
+        GROUP BY month ORDER BY month
+    """, (email,))
+    monthly_data = cursor.fetchall()
+    monthly_spending = {row['month']: float(row['amount']) for row in monthly_data}
 
-    cursor.execute("SELECT name FROM customer WHERE email = %s", (email,))
-    customer = cursor.fetchone()
+    # 生成图像
+    months = list(monthly_spending.keys())
+    amounts = list(monthly_spending.values())
+
+    plt.figure(figsize=(8, 4))
+    plt.bar(months, amounts)
+    plt.title('Monthly Spending (Last 6 Months)')
+    plt.xlabel('Month')
+    plt.ylabel('Amount ($)')
+    plt.tight_layout()
+
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png')
+    buf.seek(0)
+    chart_base64 = base64.b64encode(buf.read()).decode('utf-8')
+    chart_url = f"data:image/png;base64,{chart_base64}"
 
     cursor.close()
 
     return render_template(
         'customer_home.html',
-        user=customer,
+        user=user,
         flights=flights,
-        total_spent=round(total_spent, 2),
-        monthly_spending=dict(monthly_spending)
+        total_spent=total_spent,
+        monthly_spending=monthly_spending,
+        spending_chart_url=chart_url
     )
-
     # return render_template("customer_home.html")
 
-@app.route('/agent')
+# @app.route('/agent')
+# def agent_dashboard():
+#     user=session.get('user')
+#     if 'user' not in session or session['user'].get('identity') != 'agent':
+#         flash("Access denied", "danger")
+#         return redirect(url_for('login'))
+#     return render_template("agent_home.html",user=user)
+
+# @app.route('/agent', methods=['GET','Post'])
+@app.route('/agent', methods=['GET'])
 def agent_dashboard():
     if 'user' not in session or session['user'].get('identity') != 'agent':
         flash("Access denied", "danger")
         return redirect(url_for('login'))
-    return render_template("agent_home.html")
 
+    user = session['user']
+    agent_id = user.get('agent_id')
+    today = datetime.today().date()
+    six_months_ago = today - timedelta(days=180)
+    one_year_ago = today - timedelta(days=365)
 
-@app.route('/staff')
+    # 查询参数
+    start = request.args.get('start')
+    end = request.args.get('end')
+    src = request.args.get('from')
+    dst = request.args.get('to')
+
+    # 处理航班过滤条件
+    flight_conditions = ["p.booking_agent_id = %s"]
+    flight_params = [agent_id]
+
+    if start:
+        flight_conditions.append("f.departure_time >= %s")
+        flight_params.append(start)
+    if end:
+        flight_conditions.append("f.departure_time <= %s")
+        flight_params.append(end)
+    if src:
+        flight_conditions.append("f.departure_airport LIKE %s")
+        flight_params.append(f"%{src}%")
+    if dst:
+        flight_conditions.append("f.arrival_airport LIKE %s")
+        flight_params.append(f"%{dst}%")
+
+    flight_condition_str = " AND ".join(flight_conditions)
+
+    cursor = conn.cursor(dictionary=True)
+
+    # 🛫 获取为客户购买的航班
+    cursor.execute(f"""
+        SELECT f.flight_num, f.airline_name, f.departure_time, f.departure_airport,
+               f.arrival_airport, p.customer_email
+        FROM purchases p
+        JOIN ticket t ON p.ticket_id = t.ticket_id
+        JOIN flight f ON t.flight_num = f.flight_num AND t.airline_name = f.airline_name
+        WHERE {flight_condition_str}
+        ORDER BY f.departure_time DESC
+    """, tuple(flight_params))
+    flights = cursor.fetchall()
+
+    # 💰 获取佣金信息（默认过去30天）
+    start_c = start or (today - timedelta(days=30)).isoformat()
+    end_c = end or today.isoformat()
+
+    cursor.execute("""
+        SELECT 
+            SUM(price * 0.1) AS total,
+            AVG(price * 0.1) AS avg,
+            COUNT(*) AS count
+        FROM purchases p
+        JOIN ticket t ON p.ticket_id = t.ticket_id
+        JOIN flight f ON t.flight_num = f.flight_num AND t.airline_name = f.airline_name
+        WHERE p.booking_agent_id = %s
+          AND p.purchase_date BETWEEN %s AND %s
+    """, (agent_id, start_c, end_c))
+    commission = cursor.fetchone() or {'total': 0, 'avg': 0, 'count': 0}
+
+    # 🏆 Top 5 Customers by ticket count（过去6个月）
+    cursor.execute("""
+        SELECT customer_email, COUNT(*) AS tickets
+        FROM purchases
+        WHERE booking_agent_id = %s AND purchase_date >= %s
+        GROUP BY customer_email
+        ORDER BY tickets DESC
+        LIMIT 5
+    """, (agent_id, six_months_ago.isoformat()))
+    top_ticket_customers = cursor.fetchall()
+
+    # 🏆 Top 5 Customers by commission（过去12个月）
+    cursor.execute("""
+        SELECT customer_email, SUM(f.price * 0.1) AS total_commission
+        FROM purchases p
+        JOIN ticket t ON p.ticket_id = t.ticket_id
+        JOIN flight f ON t.flight_num = f.flight_num AND t.airline_name = f.airline_name
+        WHERE p.booking_agent_id = %s AND p.purchase_date >= %s
+        GROUP BY customer_email
+        ORDER BY total_commission DESC
+        LIMIT 5
+    """, (agent_id, one_year_ago.isoformat()))
+    top_commission_customers = cursor.fetchall()
+
+    cursor.close()
+
+    return render_template(
+        'agent_home.html',
+        user=user,
+        flights=flights,
+        commission=commission,
+        top_ticket_customers=top_ticket_customers,
+        top_commission_customers=top_commission_customers
+    )
+
+# @app.route('/staff')
+
+# @app.route('/staff', methods=['GET', 'POST'])
+# @require_permission()
+@app.route('/staff', methods=['GET', 'POST'])
 def staff_dashboard():
     if 'user' not in session or session['user'].get('identity') != 'staff':
         flash("Access denied", "danger")
         return redirect(url_for('login'))
-    
 
-    return render_template("staff_home.html")
+    user = session['user']
+    airline = user.get('airline_name')
+    permissions = user.get('permissions', [])
+    cursor = conn.cursor(dictionary=True)
 
-# 添加机场路由
-@app.route('/staff/add_airport', methods=['GET', 'POST'])
-@require_permission('Admin')
-def add_airport():
+    # 📦 处理表单提交
     if request.method == 'POST':
-        airport_name = request.form['airport_name'].strip()
-        city = request.form['city'].strip()
-        
+        form_type = request.form.get('form_name')
+
         try:
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO airport (airport_name, airport_city)
-                VALUES (%s, %s)
-            """, (airport_name, city))
-            conn.commit()
-            flash(f"机场 {airport_name} 添加成功", "success")
-        except mysql.connector.IntegrityError:
-            conn.rollback()
-            flash("机场已存在", "danger")
+            if form_type == 'airport' and 'Admin' in permissions:
+                cursor.execute("""
+                    INSERT INTO airport (airport_name, airport_city)
+                    VALUES (%s, %s)
+                """, (request.form['airport_name'], request.form['city']))
+                conn.commit()
+                flash("机场添加成功", "success")
+
+            elif form_type == 'airplane' and 'Admin' in permissions:
+                cursor.execute("""
+                    INSERT INTO airplane(airline_name, airplane_id, seats)
+                    VALUES (%s,%s, %s)
+                """, (airline, int(request.form['airplane_id']),int(request.form['seats'])))
+                conn.commit()
+                flash("飞机添加成功", "success")
+
+            elif form_type == 'flight' and 'Admin' in permissions:
+                cursor.execute("""
+                    INSERT INTO flight 
+                    (airline_name, flight_num, departure_airport, departure_time, 
+                     arrival_airport, arrival_time, price, status, airplane_id)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """, (
+                    airline,
+                    int(request.form['flight_num']),
+                    request.form['departure_airport'],
+                    request.form['departure_time'],
+                    request.form['arrival_airport'],
+                    request.form['arrival_time'],
+                    float(request.form['price']),
+                    request.form['status'],
+                    int(request.form['airplane_id'])
+                ))
+                conn.commit()
+                flash("航班创建成功", "success")
+
+            elif form_type == 'grant' and 'Admin' in permissions:
+                cursor.execute("""
+                    INSERT INTO permission (username, permission_type)
+                    VALUES (%s, %s)
+                """, (request.form['username'], request.form['permission']))
+                conn.commit()
+                flash("权限授予成功", "success")
+
         except Exception as e:
             conn.rollback()
-            flash(f"数据库错误: {str(e)}", "danger")
-        finally:
-            cursor.close()
-        return redirect(url_for('staff_dashboard'))
+            flash(f"操作失败: {str(e)}", "danger")
 
-    return render_template('staff_add_airport.html')
-
-# 权限验证装饰器增强版
-def require_permission(permission=None):
-    def decorator(f):
-        @wraps(f)
-        def wrapped(*args, **kwargs):
-            if 'user' not in session:
-                return redirect(url_for('login'))
-                
-            user = session['user']
-            if user['identity'] != 'staff':
-                flash("员工专属功能", "danger")
-                return redirect(url_for('home'))
-
-            if permission and permission not in user.get('permissions', []):
-                flash("权限不足", "danger")
-                return redirect(url_for('staff_dashboard'))
-            
-            return f(*args, **kwargs)
-        return wrapped
-    return decorator
-
-@app.route('/staff/add_airplane', methods=['POST'])
-@require_permission('Admin')
-def staff_add_airplane():
-    if 'user' not in session or session['user'].get('identity') != 'staff':
-        flash("Access denied", "danger")
-        return redirect(url_for('login'))
-    
-    return
-
-# 员工查看航班
-@app.route('/staff/flights')
-@require_permission()
-def staff_view_flights():
-    if 'user' not in session or session['user'].get('identity') != 'staff':
-        flash("Access denied", "danger")
-        return redirect(url_for('login'))
-    # 获取查询参数
+    # ✈️ 航班数据
     start_date = request.args.get('start', datetime.now().strftime('%Y-%m-%d'))
     end_date = request.args.get('end', (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d'))
-    
-    cursor = conn.cursor(dictionary=True)
     cursor.execute("""
         SELECT f.*, COUNT(t.ticket_id) AS seats_sold
         FROM flight f
         LEFT JOIN ticket t USING(airline_name, flight_num)
-        WHERE f.airline_name = %s
-          AND f.departure_time BETWEEN %s AND %s
+        WHERE f.airline_name = %s AND f.departure_time BETWEEN %s AND %s
         GROUP BY f.flight_num
     """, (airline, start_date, end_date))
-    
     flights = cursor.fetchall()
+
+    # ✈️ 所有飞机
+    cursor.execute("SELECT * FROM airplane WHERE airline_name = %s", (airline,))
+    airplanes = cursor.fetchall()
+
+    # 👤 员工列表（用于权限管理）
+    cursor.execute("SELECT username FROM airline_staff WHERE airline_name = %s", (airline,))
+    staff_list = cursor.fetchall()
+
+    # 📈 销售报告（30天内）
+    today = datetime.now().date()
+    thirty_days_ago = today - timedelta(days=30)
+
+    cursor.execute("""
+        SELECT SUM(price) AS total_revenue
+        FROM ticket
+        NATURAL JOIN purchases
+        NATURAL JOIN flight
+        WHERE airline_name = %s AND purchase_date BETWEEN %s AND %s
+    """, (airline, thirty_days_ago, today))
+    total_sales = cursor.fetchone()['total_revenue'] or 0
+
+    cursor.execute("""
+        SELECT booking_agent_id, SUM(price) AS revenue, COUNT(*) AS tickets
+        FROM ticket
+        NATURAL JOIN purchases
+        NATURAL JOIN flight
+        WHERE airline_name = %s AND purchase_date BETWEEN %s AND %s
+              AND booking_agent_id IS NOT NULL
+        GROUP BY booking_agent_id
+        ORDER BY revenue DESC
+        LIMIT 5
+    """, (airline, thirty_days_ago, today))
+    top_agents = cursor.fetchall()
+
+    # 📍 热门目的地（过去30天按目的机场统计最多）
+    cursor.execute("""
+        SELECT arrival_airport, COUNT(*) AS total_flights
+        FROM flight
+        JOIN ticket USING(airline_name, flight_num)
+        JOIN purchases USING(ticket_id)
+        WHERE airline_name = %s AND purchase_date BETWEEN %s AND %s
+        GROUP BY arrival_airport
+        ORDER BY total_flights DESC
+        LIMIT 5
+    """, (airline, thirty_days_ago, today))
+    top_destinations = cursor.fetchall()
+
+    # 📅 月度销售（过去6个月）
+    cursor.execute("""
+        SELECT DATE_FORMAT(purchase_date, '%%Y-%%m') AS month, SUM(price) AS revenue
+        FROM purchases
+        JOIN ticket USING(ticket_id)
+        JOIN flight USING(airline_name, flight_num)
+        WHERE airline_name = %s AND purchase_date >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
+        GROUP BY month
+        ORDER BY month ASC
+    """, (airline,))
+    monthly_sales = cursor.fetchall()
+
     cursor.close()
-    return render_template('staff_flights.html', flights=flights)
+
+    return render_template(
+        "staff_home.html",
+        permissions=permissions,
+        airline=airline,
+        flights=flights,
+        airplanes=airplanes,
+        staff_list=staff_list,
+        top_destinations=top_destinations,
+        monthly_sales=monthly_sales,
+        total_sales=total_sales,
+        top_agents=top_agents
+    )
+
+
+# @app.route('/staff/grant_permission', methods=['POST'])
+# @require_permission('Admin')
+# def grant_permission():
+#     username = request.form['username'].strip()
+#     permission = request.form['permission']
+
+#     cursor = conn.cursor()
+#     try:
+#         cursor.execute("""
+#             INSERT IGNORE INTO permission (username, permission_type)
+#             VALUES (%s, %s)
+#         """, (username, permission))
+#         conn.commit()
+#         flash(f"Granted {permission} to {username}", "success")
+#     except Exception as e:
+#         conn.rollback()
+#         flash(f"Error: {str(e)}", "danger")
+#     finally:
+#         cursor.close()
+
+#     return redirect(url_for('staff_dashboard'))
+
+# # 添加机场路由
+# @app.route('/staff/add_airport', methods=['GET', 'POST'])
+# @require_permission('Admin')
+# def add_airport():
+#     if request.method == 'POST':
+#         airport_name = request.form['airport_name'].strip()
+#         city = request.form['city'].strip()
+        
+#         try:
+#             cursor = conn.cursor()
+#             cursor.execute("""
+#                 INSERT INTO airport (airport_name, airport_city)
+#                 VALUES (%s, %s)
+#             """, (airport_name, city))
+#             conn.commit()
+#             flash(f"机场 {airport_name} 添加成功", "success")
+#         except mysql.connector.IntegrityError:
+#             conn.rollback()
+#             flash("机场已存在", "danger")
+#         except Exception as e:
+#             conn.rollback()
+#             flash(f"数据库错误: {str(e)}", "danger")
+#         finally:
+#             cursor.close()
+#         return redirect(url_for('staff_dashboard'))
+
+#     return render_template('staff_add_airport.html')
+
+
+
+# @app.route('/staff/add_airplane', methods=['POST'])
+# @require_permission('Admin')
+# def staff_add_airplane():
+#     if 'user' not in session or session['user'].get('identity') != 'staff':
+#         flash("Access denied", "danger")
+#         return redirect(url_for('login'))
+    
+#     return
+
+# # 员工查看航班
+# @app.route('/staff/flights')
+# @require_permission()
+# def staff_view_flights():
+#     if 'user' not in session or session['user'].get('identity') != 'staff':
+#         flash("Access denied", "danger")
+#         return redirect(url_for('login'))
+#     # 获取查询参数
+#     start_date = request.args.get('start', datetime.now().strftime('%Y-%m-%d'))
+#     end_date = request.args.get('end', (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d'))
+    
+#     cursor = conn.cursor(dictionary=True)
+#     cursor.execute("""
+#         SELECT f.*, COUNT(t.ticket_id) AS seats_sold
+#         FROM flight f
+#         LEFT JOIN ticket t USING(airline_name, flight_num)
+#         WHERE f.airline_name = %s
+#           AND f.departure_time BETWEEN %s AND %s
+#         GROUP BY f.flight_num
+#     """, (airline, start_date, end_date))
+    
+#     flights = cursor.fetchall()
+#     cursor.close()
+#     return render_template('staff_flights.html', flights=flights)
 
 # 其他功能按类似模式实现...
 # #################################################################################################################

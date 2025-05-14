@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Agent Dashboard - ZEPHRA Air</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/dashboard.css">
+</head>
+<body>
+<nav class="navbar navbar-expand-lg bg-dark text-white px-4 fixed-top">
+    <div class="container-fluid">
+        <a class="navbar-brand text-white" href="/">ZEPHRA</a>
+        <div class="ms-auto d-flex align-items-center gap-3">
+            <span class="text-white small">Hi, Agent</span>
+            <a class="btn btn-outline-light" href="/logout">Logout</a>
+        </div>
+    </div>
+</nav>
+
+<div class="container mt-5 pt-5">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show mt-3">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <h2 class="my-4">📋 Agent Dashboard</h2>
+
+    <!-- 1. View My Flights -->
+    <section class="dashboard-section">
+        <h4>📅 Flights Purchased for Customers</h4>
+        <form method="get" class="row g-3 mb-3">
+            <div class="col-md-3">
+                <input type="date" name="start" class="form-control" placeholder="Start date">
+            </div>
+            <div class="col-md-3">
+                <input type="date" name="end" class="form-control" placeholder="End date">
+            </div>
+            <div class="col-md-3">
+                <input type="text" name="from" class="form-control" placeholder="From Airport">
+            </div>
+            <div class="col-md-3">
+                <input type="text" name="to" class="form-control" placeholder="To Airport">
+            </div>
+            <div class="col-md-12">
+                <button class="btn btn-primary">Filter Flights</button>
+            </div>
+        </form>
+        {% if flights %}
+        <table class="table table-striped">
+            <thead><tr><th>Flight #</th><th>Airline</th><th>From</th><th>To</th><th>Departure</th><th>Customer</th></tr></thead>
+            <tbody>
+                {% for f in flights %}
+                <tr>
+                    <td>{{ f.flight_num }}</td>
+                    <td>{{ f.airline_name }}</td>
+                    <td>{{ f.departure_airport }}</td>
+                    <td>{{ f.arrival_airport }}</td>
+                    <td>{{ f.departure_time }}</td>
+                    <td>{{ f.customer_email }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="text-muted">No flights found.</p>
+        {% endif %}
+    </section>
+
+    <!-- 2. Purchase Tickets (via search result) -->
+    <section class="dashboard-section">
+        <h4>🛫 Search Flights to Purchase</h4>
+        <form method="get" action="/index" class="row g-3 mb-3">
+            <div class="col-md-3"><input name="from" placeholder="From Airport" class="form-control"></div>
+            <div class="col-md-3"><input name="to" placeholder="To Airport" class="form-control"></div>
+            <div class="col-md-3"><input type="date" name="date" class="form-control"></div>
+            <div class="col-md-3"><button class="btn btn-success w-100">Search</button></div>
+        </form>
+        <p class="text-muted">Use the above form to search and buy tickets on behalf of your customers.</p>
+    </section>
+
+    <!-- 4. View My Commission -->
+    <section class="dashboard-section">
+        <h4>💰 Commission Overview</h4>
+        <form method="get" class="row g-3 mb-3">
+            <div class="col-md-6"><input type="date" name="start" class="form-control" placeholder="Start date"></div>
+            <div class="col-md-6"><input type="date" name="end" class="form-control" placeholder="End date"></div>
+            <div class="col-md-12"><button class="btn btn-outline-primary w-100">Refresh Commission</button></div>
+        </form>
+        <p>Total Commission: ${{ commission.total or 0 }}</p>
+        <p>Average Commission per Ticket: ${{ commission.avg or 0 }}</p>
+        <p>Total Tickets Sold: {{ commission.count or 0 }}</p>
+    </section>
+
+    <!-- 5. Top Customers -->
+    <section class="dashboard-section">
+        <h4>🏆 Top 5 Customers</h4>
+        <div class="row">
+            <div class="col-md-6">
+                <h6>🎟️ Most Tickets (Past 6 Months)</h6>
+                {% if top_ticket_customers %}
+                <ul>
+                    {% for c in top_ticket_customers %}
+                    <li>{{ c.customer_email }} - {{ c.tickets }} tickets</li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-muted">No data available.</p>
+                {% endif %}
+            </div>
+            <div class="col-md-6">
+                <h6>💸 Highest Commission (Last Year)</h6>
+                {% if top_commission_customers %}
+                <ul>
+                    {% for c in top_commission_customers %}
+                    <li>{{ c.customer_email }} - ${{ c.total_commission }}</li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-muted">No data available.</p>
+                {% endif %}
+            </div>
+        </div>
+    </section>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
