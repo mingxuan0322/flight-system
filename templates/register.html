@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Login - ZEPHRA Air</title>
+    <title>Sign In - ZEPHRA Air</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700&display=swap" rel="stylesheet">
     <!-- Bootstrap 5 CSS -->
@@ -55,104 +55,233 @@
                 display: block; /* 大屏幕显示左侧图片 */
             }
         }
+
+        /* 新增动态表单样式 */
+        .dynamic-form-section {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+            margin-top: 1rem;
+        }
+
+        .form-section-active {
+            max-height: 500px; /* 根据实际内容调整 */
+        }
+
+        .agent-fields, .staff-fields {
+            border-left: 3px solid #00AEEF;
+            padding-left: 1rem;
+            margin: 1rem 0;
+        }
+
+        .permission-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 0.5rem;
+            margin: 1rem 0;
+        }
     </style>
 </head>
 <body>
+      <!-- 在register.html的<body>开头添加 -->
+    <div class="position-fixed top-0 start-50 translate-middle-x mt-3" style="z-index: 9999">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+              {% for category, message in messages %}
+              <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                  {{ message }}
+                  <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+              </div>
+              {% endfor %}
+          {% endif %}
+      {% endwith %}
+    </div>
     <div class="login-container">
-        <!-- 左侧概念图 -->
-        <div class="hero-section">
-            <div class="hero-overlay">
-                <h1>Experience the Sky</h1>
-                <p>Your journey begins with ZEPHRA</p>
-            </div>
-        </div>
-
-        <!-- 右侧登录区 -->
         <div class="login-section">
             <div class="login-card">
-                <!-- 返回键 -->
-                <a href="/" class="back-link">
-                    ← Return
-                </a>
+                <a href="/" class="back-link">← Return</a>
+                <h2>Create New Account</h2>
 
-                <!-- 主登录表单 -->
-                <h2>Welcome Back</h2>
-                <form action="/login" method="POST" class="auth-form">
-                <!-- <form action="/loginAuth" method="POST" class="auth-form"> -->
-                    
-                    <div class="form_group">
-                        <label for="identity" >Log in as:</label>
-                        <select id="identity" name="identity" required>
-                            <option value="" disabled selected class="text-muted">Select your role</option>
+                <form action="/register" method="POST" id="registrationForm">
+                    <!-- 用户类型选择 -->
+                    <div class="form-group">
+                        <select name="form_type" id="userType" class="form-select" required 
+                                onchange="toggleFormSections()">
+                            <option value=""><Samp></Samp>elect Account Type</option>
                             <option value="customer">Customer</option>
-                            <option value="agent">Agent</option>
-                            <option value="staff">Staff</option>
+                            <option value="agent">Booking Agent</option>
+                            <option value="staff">Airline Staff</option>
                         </select>
                     </div>
-                    
+
+                    <!-- 公共字段 -->
                     <div class="form-group">
-                        <!-- <label for="username" >Username:</label> -->
-                        <input type="text" 
-                               name="username" 
-                               placeholder="Email Address"
-                               required>
+                        <input type="email" name="email" placeholder="Email Address" required>
                     </div>
                     <div class="form-group">
-                        <!-- <label for="password" >Password:</label> -->
-                        <!-- <input type="password" 
-                               name="password" 
-                               placeholder="Your password"
-                               required> -->
-                            <div class="form-group position-relative">
-                            <input type="password" 
-                                    name="password" 
-                                    id="password"
-                                    class="form-control"
-                                    placeholder="Your password"
-                                    required>
-                            
-                            <!-- 小眼睛按钮 -->
-                            <span onclick="togglePassword()" 
-                                    class="position-absolute top-50 end-0 translate-middle-y me-3" 
-                                    style="cursor: pointer; z-index: 2;">
-                                👁
-                            </span>
-                            </div>
-                    </div>
-                    <div class="form_group">
-                        <button type="submit" class="btn btn-primary w-100">Sign In</button>
+                        <input type="password" name="password" id="password" 
+                               placeholder="Password (min. 6 characters)" required>
+                        <span onclick="togglePassword()" 
+                               class="position-relative top-50 end-0 translate-middle-y me-3" 
+                               style="cursor: pointer; z-index: 2;">
+                           👁
+                       </span>
                     </div>
 
-                    <!-- 错误提示 -->
-                    {% if error %}
-                    <div class="error-message">
-                        {{ error }}
+                    <!-- 动态表单部分 -->
+                    <!-- 客户字段 -->
+                    <div id="customerFields" class="dynamic-form-section">
+                        <div class="form-group">
+                            <input type="text" name="name" placeholder="Full Name" >
+                        </div>
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <input type="tel" name="phone" placeholder="Phone Number">
+                            </div>
+                            <div class="col-md-6">
+                                <input type="text" name="passport" placeholder="Passport Number">
+                            </div>
+                        </div>
+                        <!-- 更多客户字段... -->
                     </div>
-                    {% endif %}
+
+                    <!-- 代理字段 -->
+                    <div id="agentFields" class="dynamic-form-section agent-fields">
+                        <div class="form-group">
+                            <input type="number" name="agent_id" 
+                                   placeholder="Agent ID (Unique)">
+                        </div>
+                    </div>
+
+                    <!-- 员工字段 -->
+                    <div id="staffFields" class="dynamic-form-section staff-fields">
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <input type="text" name="first_name" placeholder="First Name">
+                            </div>
+                            <div class="col-md-6">
+                                <input type="text" name="last_name" placeholder="Last Name">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <select name="airline" class="form-select">
+                                <option value="">Select Airline</option>
+                                {% for airline in airlines %}
+                                <option value="{{ airline }}">{{ airline }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <!-- 权限选择 -->
+                        <div class="permission-group">
+                            <label>Permissions:</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" 
+                                       name="permissions" value="Admin">
+                                <label class="form-check-label">Admin</label>
+                            </div>
+                            <!-- 其他权限... -->
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Create Account</button>
                 </form>
 
-                <!-- 附加选项 -->
                 <div class="auth-options">
-                    <p class="text-center">
-                        New to ZEPHRA? 
-                        <a href="/register">Create Account</a>
-                    </p>
-                    
-                    <!-- <div class="staff-login">
-                        <p>Airline Staff / Administrator? 
-                            <a href="/staff-login">Special Access</a>
-                        </p>
-                    </div> -->
+                    <p>Already have an account? <a href="/login">Login here</a></p>
                 </div>
             </div>
         </div>
     </div>
+
     <script>
+        function toggleFormSections() {
+            const type = document.getElementById('userType').value;
+            ['customer', 'agent', 'staff'].forEach(t => {
+                const section = document.getElementById(`${t}Fields`);
+                section.classList.toggle('form-section-active', t === type);
+            });
+        }
         function togglePassword() {
           const pwd = document.getElementById("password");
           pwd.type = pwd.type === "password" ? "text" : "password";
         }
-      </script>
-      
+        // 初始化显示
+        window.onload = () => toggleFormSections();
+        document.getElementById('registrationForm').addEventListener('submit', function(e) {
+            const userType = document.getElementById('userType').value;
+            let isValid = true;
+            let errorMessage = '';
+
+            // 通用字段验证
+            if (!document.querySelector('[name="email"]').value) {
+                errorMessage = 'Email is required';
+                isValid = false;
+            }
+
+            // 按用户类型验证
+            switch(userType) {
+                case 'customer':
+                    if (!validateCustomerFields()) isValid = false;
+                    break;
+                case 'agent':
+                    if (!validateAgentFields()) isValid = false;
+                    break;
+                case 'staff':
+                    if (!validateStaffFields()) isValid = false;
+                    break;
+                default:
+                    errorMessage = 'Please select a user type';
+                    isValid = false;
+            }
+
+            if (!isValid) {
+                e.preventDefault();
+                showErrorAlert(errorMessage || 'Please fill all required fields');
+            }
+        });
+
+        function validateCustomerFields() {
+            const required = ['name', 'phone', 'passport'];
+            return checkFields(required);
+        }
+
+        function validateAgentFields() {
+            return checkFields(['agent_id']);
+        }
+
+        function validateStaffFields() {
+            return checkFields(['first_name', 'last_name', 'airline']);
+        }
+
+        function checkFields(fields) {
+            let valid = true;
+            fields.forEach(field => {
+                const el = document.querySelector(`[name="${field}"]`);
+                if (!el || !el.value.trim()) {
+                    el?.classList.add('is-invalid');
+                    valid = false;
+                } else {
+                    el?.classList.remove('is-invalid');
+                }
+            });
+            return valid;
+        }
+
+        function showErrorAlert(msg) {
+            const alertBox = document.createElement('div');
+            alertBox.className = 'alert alert-danger alert-dismissible fade show fixed-top';
+            alertBox.role = 'alert';
+            alertBox.innerHTML = `
+                ${msg}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.prepend(alertBox);
+            
+            // 自动消失
+            setTimeout(() => alertBox.remove(), 5000);
+        }
+        </script>
+    </script>
 </body>
+
 </html>

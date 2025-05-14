@@ -2,9 +2,11 @@ from flask import Flask, render_template, request, url_for, flash, redirect, ses
 import mysql.connector
 from datetime import datetime, timedelta
 from collections import defaultdict
+from functools import wraps
 
+import hashlib 
 from werkzeug.security import generate_password_hash, check_password_hash
-# from datetime import datetime, timedelta
+
 import json
 import random
 
@@ -26,26 +28,46 @@ try:
 except Exception as e:
     print(">>> Database connection failed:", e)
     exit(1)
-# ├── static/
-# │   └── css/
-# │       └── style.css
+
+def require_permission(permission=None):
+    def decorator(f):
+        @wraps(f)
+        def wrapped(*args, **kwargs):
+            if 'user' not in session:
+                return redirect(url_for('login'))
+                
+            user_type = session['user']['identity']
+            
+            # 员工权限检查
+            if user_type == 'staff' and permission:
+                if permission not in session['user'].get('permissions', []):
+                    flash("Insufficient permissions", "danger")
+                    return redirect(url_for('staff_dashboard'))
+            
+            return f(*args, **kwargs)
+        return wrapped
+    return decorator
 # # airticket/
 # # │
 # # ├── index.html             // 首页
 # # ├── login.html             // 登录页面
 # # ├── register.html          // 注册页面
+# # ├── home.html          // 
 # # ├── customer_home.html     // 客户主页
 # # ├── agent_home.html        // 代理主页
 # # ├── staff_home.html        // 航空公司工作人员主页
 # # │
-# # ├── css/
-# # │   └── style.css          // 所有页面共用的样式表
+# # ├── static/
+# # │   └── css/
+# # │       └── style.css
 # # │
 # # └── js/
 # #     └── main.js            // 用于未来交互的JS
 
 
 #Define a route to hello function
+# ok#################################################################################################################
+
 @app.route('/')
 def hello():
     # username = session.get('username')  # ✅ 如果没登录会返回 None，不报错
@@ -68,15 +90,8 @@ def hello():
     else:
         print("----------------index------------")
         return redirect(url_for('search'))
-         
     
-    # if 'username' in session:
-    #     return redirect(url_for('home'))
-    # return redirect(url_for('search'))
-    # return render_template('index.html')
-
-# @app.route('/index', methods=['GET'])
-# @app.route('/index', methods=['GET'])
+# ok#################################################################################################################
 @app.route('/index', methods=['GET'])
 # def search():
 def search():
@@ -144,103 +159,144 @@ def book_flight(airline_name, flight_num):
     return f"Booking page for flight {airline_name} #{flight_num}"
     # return redirect(url_for('home'))
 
-# #################################################################################################################
-# @app.route('/login')
-# def login():
-	# return render_template('login.html')
+#ok#################################################################################################################
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    user = session.get('user')
+    print("----------------login------------")
+
+    if user and user['identity'] == 'customer':
+        return redirect(url_for('customer_dashboard'))
+    elif user and user['identity'] == 'agent':
+        return redirect(url_for('agent_dashboard'))
+    elif user and user['identity'] == 'staff':
+        return redirect(url_for('staff_dashboard'))
+
     if request.method == 'POST':
         #get what user input in the login page
         identity = request.form.get('identity')
-        email = request.form.get('username').lower()
+        email = request.form.get('username').lower().strip()
         # email = request.form.get('login_email').lower().split('@')[0] + '@' + request.form.get('login_email').split('@')[1]
-        password = request.form.get('password')  #这里get到的密码应该是输入进去什么就是什么，输入1这里就是1
+        password = request.form.get('password').strip()  #这里get到的密码应该是输入进去什么就是什么，输入1这里就是1
         
         print(identity, email, password)
 
-        #通过identity定位我从哪个table里面查找我的用户
-        table_map = {
-            'customer': 'customer',
-            'agent': 'booking_agent',
-            'staff': 'airline_staff'
+        #通过identity定位我从哪个table里面查找我的用户 & agent中时username而不是email
+        tables = {
+            'customer': ('customer', 'email'),
+            'agent': ('booking_agent', 'email'),
+            'staff': ('airline_staff', 'username')
         }
-
-        if identity not in table_map:
+        if identity not in tables:
             flash("Invalid role selected", "danger")
-            return render_template("login.html", error="Invalid role")
+            return redirect(url_for('login'), error="Invalid role")
+            # return render_template("login.html", error="Invalid role")
 
-        table = table_map[identity]
+        table,id_field  = tables[identity]
         cursor = conn.cursor(dictionary=True)
-        query = f"SELECT * FROM {table} WHERE email = %s"
-        cursor.execute(query, (email,))
-        # cursor.execute(f"SELECT * FROM {table} WHERE email = %s", (email,))
-        user = cursor.fetchone()
-        cursor.close()
-        print('----------------user', user,password)
+        try:
+            # 获取用户记录
+            cursor.execute(f"""
+                SELECT *, password AS hash 
+                FROM {table} 
+                WHERE {id_field} = %s
+            """, (email,))
+            user = cursor.fetchone()
 
-        # if user and check_password_hash(user['password'], password):
-        #     session['user'] = {
-        #         'email': user['email'],
-        #         'identity': identity
-        #     }
+            # 验证密码
+            if user and check_password_hash(user['hash'], password):
+                session['user'] = {
+                    'email': user.get('email') or user['username'],
+                    'identity': identity,
+                }
+                flash("Login successful!", "success")
+                return redirect(url_for('home'))
+            else:
+                flash("Invalid credentials", "danger")
+                
+        except mysql.connector.Error as err:
+            flash(f"Database error: {err.msg}", "danger")
+        finally:
+            cursor.close()
+
+    return render_template('login.html')    
+    #     query = f"SELECT * FROM {table} WHERE email = %s"
+    #     cursor.execute(query, (email,))
+    #     # cursor.execute(f"SELECT * FROM {table} WHERE email = %s", (email,))
+    #     user = cursor.fetchone()
+    #     cursor.close()
+    #     print('----------------user', user,password)
+
+    #     # if user and check_password_hash(user['password'], password):
+    #     #     session['user'] = {
+    #     #         'email': user['email'],
+    #     #         'identity': identity
+    #     #     }
 
 
-        if user and check_password_hash(user['password'], password):
-            print('----------------------------------------')
-            session['user'] = {
-                'email': user['email'],
-                'identity': identity
-            }
+    #     if user and check_password_hash(user['password'], password):
+    #         print('----------------------------------------')
+    #         session['user'] = {
+    #             'email': user['email'],
+    #             'identity': identity
+    #         }
 
-            flash("Login successful!", "success")
-            print(f"Redirecting to {identity}_dashboard test")
+    #         #######################################
+    #         where=session.get('action')
+    #         airline=session.get('airline_name')
+    #         flight=session.get('flight_num')
+    #         if where == 'book':
+    #             return redirect(url_for(book_flight,),airline_name=airline,flight_num=flight)
 
-            if identity == 'customer':
-                print(f"Redirecting to {identity}_dashboard")
-                return redirect(url_for('customer_dashboard'))
-                # print(f"Redirecting to {identity}_dashboard")
-            elif identity == 'agent':
-                session['user']['agent_id'] = user['booking_agent_id']
-                print(session)
-                print(f"Redirecting to {identity}_dashboard")
-                return redirect(url_for('agent_dashboard'))
-            elif identity == 'staff':
-                session['user']['airline_name'] = user['airline_name']
-                cursor.execute("SELECT permission_type FROM permission WHERE email = %s", (email,))
-                permissions = cursor.fetchall()
-                # print("permission get from database",permissions)
 
-                if permissions:
-                    # 提取权限类型的值
-                    session['user']['permissions'] = [permission['permission_type'] for permission in permissions]
-                else:
-                    session['user']['permissions'] = []  # 没有权限时为空列表
-                # print("permissions after processing:", session['user']['permissions'])   
+    #         flash("Login successful!", "success")
+    #         print(f"Redirecting to {identity}_dashboard test")
+
+    #         if identity == 'customer':
+    #             print(f"Redirecting to {identity}_dashboard")
+    #             return redirect(url_for('customer_dashboard'))
+    #             # print(f"Redirecting to {identity}_dashboard")
+    #         elif identity == 'agent':
+    #             session['user']['agent_id'] = user['booking_agent_id']
+    #             print(session)
+    #             print(f"Redirecting to {identity}_dashboard")
+    #             return redirect(url_for('agent_dashboard'))
+    #         elif identity == 'staff':
+    #             session['user']['airline_name'] = user['airline_name']
+    #             cursor.execute("SELECT permission_type FROM permission WHERE email = %s", (email,))
+    #             permissions = cursor.fetchall()
+    #             # print("permission get from database",permissions)
+
+    #             if permissions:
+    #                 # 提取权限类型的值
+    #                 session['user']['permissions'] = [permission['permission_type'] for permission in permissions]
+    #             else:
+    #                 session['user']['permissions'] = []  # 没有权限时为空列表
+    #             # print("permissions after processing:", session['user']['permissions'])   
                              
-                # 权限为空 设置一个默认值
-                if not session['user']['permissions']:
-                    session['user']['permissions'] = ['None']
+    #             # 权限为空 设置一个默认值
+    #             if not session['user']['permissions']:
+    #                 session['user']['permissions'] = ['None']
     
-                print(session)
-                print(f"Redirecting to {identity}_dashboard")
+    #             print(session)
+    #             print(f"Redirecting to {identity}_dashboard")
 
-                return redirect(url_for('staff_dashboard'))
-        else:
-            # 登录失败
-            flash("Invalid email or password. Please try again.", "error")
-            return redirect(url_for('login'))
+    #             return redirect(url_for('staff_dashboard'))
+    #     else:
+    #         # 登录失败
+    #         flash("Invalid email or password. Please try again.", "error")
+    #         return redirect(url_for('login'))
         
-        # except mysql.connector.Error as err:
-        #     print(f"Database error: {err}")
-        #     flash("Database error. Please try again later.", "error")
-        #     return redirect(url_for('login'))
-        # finally:
-        #     print('login-finally')
-        #     cursor.close()
+    #     # except mysql.connector.Error as err:
+    #     #     print(f"Database error: {err}")
+    #     #     flash("Database error. Please try again later.", "error")
+    #     #     return redirect(url_for('login'))
+    #     # finally:
+    #     #     print('login-finally')
+    #     #     cursor.close()
 
-    return render_template('login.html')
-
+    # # return render_template('login.html')
+# #################################################################################################################
 @app.route('/customer')
 def customer_dashboard():
     if 'user' not in session or session['user'].get('identity') != 'customer':
@@ -261,16 +317,25 @@ def customer_dashboard():
     """, (email,))
     flights = cursor.fetchall()
 
+    # 增加日期范围查询参数
+    start_date = request.args.get('start', (datetime.now() - timedelta(days=365)).strftime('%Y-%m-%d'))
+    end_date = request.args.get('end', datetime.now().strftime('%Y-%m-%d'))
     # 获取过去一年的总消费 & 按月消费
     one_year_ago = datetime.now() - timedelta(days=365)
     cursor.execute("""
-        SELECT f.price, p.purchase_date
-        FROM flight f
-        JOIN ticket t ON f.flight_num = t.flight_num AND f.airline_name = t.airline_name
-        JOIN purchases p ON t.ticket_id = p.ticket_id
-        WHERE p.customer_email = %s AND p.purchase_date >= %s
-    """, (email, one_year_ago))
-
+        SELECT 
+            SUM(f.price) AS total,
+            DATE_FORMAT(p.purchase_date, '%%Y-%%m') AS month,
+            COUNT(*) AS tickets
+        FROM purchases p
+        JOIN ticket t USING(ticket_id)
+        JOIN flight f USING(airline_name, flight_num)
+        WHERE p.customer_email = %s
+          AND p.purchase_date BETWEEN %s AND %s
+        GROUP BY month
+        ORDER BY month
+    """, (email, start_date, end_date))
+    # spending_data = cursor.fetchall()
     purchases = cursor.fetchall()
     total_spent = sum([float(p['price']) for p in purchases])
 
@@ -296,239 +361,296 @@ def customer_dashboard():
 
 @app.route('/agent')
 def agent_dashboard():
+    if 'user' not in session or session['user'].get('identity') != 'agent':
+        flash("Access denied", "danger")
+        return redirect(url_for('login'))
     return render_template("agent_home.html")
+
 
 @app.route('/staff')
 def staff_dashboard():
+    if 'user' not in session or session['user'].get('identity') != 'staff':
+        flash("Access denied", "danger")
+        return redirect(url_for('login'))
+    
+
     return render_template("staff_home.html")
 
-@app.route('/customer_purchase')
-def customer_purchase():
-     return render_template("customer_purchase.html")
-@app.route('/agent_purchase')
-def agent_purchase():
-     return render_template("agent_purchase.html")
-@app.route('/purchase')
-#Define route for register
+
+@app.route('/staff/add_airplane', methods=['POST'])
+@require_permission('Admin')
+def staff_add_airplane():
+    if 'user' not in session or session['user'].get('identity') != 'staff':
+        flash("Access denied", "danger")
+        return redirect(url_for('login'))
+    
+    return
+
+# 员工查看航班
+@app.route('/staff/flights')
+@require_permission()
+def staff_view_flights():
+    if 'user' not in session or session['user'].get('identity') != 'staff':
+        flash("Access denied", "danger")
+        return redirect(url_for('login'))
+    # 获取查询参数
+    start_date = request.args.get('start', datetime.now().strftime('%Y-%m-%d'))
+    end_date = request.args.get('end', (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d'))
+    
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("""
+        SELECT f.*, COUNT(t.ticket_id) AS seats_sold
+        FROM flight f
+        LEFT JOIN ticket t USING(airline_name, flight_num)
+        WHERE f.airline_name = %s
+          AND f.departure_time BETWEEN %s AND %s
+        GROUP BY f.flight_num
+    """, (airline, start_date, end_date))
+    
+    flights = cursor.fetchall()
+    cursor.close()
+    return render_template('staff_flights.html', flights=flights)
+
+# 其他功能按类似模式实现...
+# #################################################################################################################
+
+@app.route('/purchase/<airline_name>/<int:flight_num>', methods=['POST'])
+def purchase_flight(airline_name, flight_num):
+    if 'user' not in session or session['user'].get('identity') != 'staff':
+        flash("Access denied", "danger")
+        return redirect(url_for('login'))
+    
+    user_type = session['user']['identity']
+    customer_email = None
+    agent_id = None
+    
+    if user_type == 'customer':
+        customer_email = session['user']['email']
+    elif user_type == 'agent':
+        agent_id = session['user']['agent_id']
+        customer_email = request.form.get('customer_email')  # 需要验证客户是否存在
+    else:
+        flash("Staff cannot purchase tickets", "danger")
+        return redirect(url_for('home'))
+
+    try:
+        cursor = conn.cursor()
+        # 开始事务
+        cursor.execute("START TRANSACTION")
+        
+        # 1. 获取飞机座位数
+        cursor.execute("""
+            SELECT a.seats - COUNT(t.ticket_id) AS remaining
+            FROM airplane a
+            LEFT JOIN flight f USING(airline_name, airplane_id)
+            LEFT JOIN ticket t USING(airline_name, flight_num)
+            WHERE f.airline_name = %s AND f.flight_num = %s
+            GROUP BY a.airplane_id
+            FOR UPDATE
+        """, (airline_name, flight_num))
+        remaining = cursor.fetchone()[0]
+        
+        if remaining < 1:
+            raise Exception("No seats available")
+
+        # 2. 生成票号（假设使用自增ID）
+        cursor.execute("INSERT INTO ticket (airline_name, flight_num) VALUES (%s, %s)",
+                     (airline_name, flight_num))
+        ticket_id = cursor.lastrowid
+
+        # 3. 记录购买
+        cursor.execute("""
+            INSERT INTO purchases 
+            (ticket_id, customer_email, booking_agent_id, purchase_date)
+            VALUES (%s, %s, %s, CURDATE())
+        """, (ticket_id, customer_email, agent_id))
+        
+        conn.commit()
+        flash("Purchase successful!", "success")
+    
+    except Exception as e:
+        conn.rollback()
+        flash(f"Purchase failed: {str(e)}", "danger")
+    finally:
+        cursor.close()
+    
+    return redirect(url_for('customer_dashboard' if user_type == 'customer' else 'agent_dashboard'))
+#Define route for purchase that allow user and agent finish the process
 
 # #################################################################################################################
 #Authenticates the login
-@app.route('/loginAuth', methods=['GET', 'POST'])
-def loginAuth():
-	#grabs information from the forms
-	username = request.form['username']
-	password = request.form['password']
+# @app.route('/loginAuth', methods=['GET', 'POST'])
+# def loginAuth():
+# 	#grabs information from the forms
+# 	username = request.form['username']
+# 	password = request.form['password']
 
-	#cursor used to send queries
-	cursor = conn.cursor()
-	#executes query
-	query = "SELECT * FROM user WHERE username = '{}' and password = '{}'"
-	cursor.execute(query.format(username, password))
-	#stores the results in a variable
-	data = cursor.fetchone()
-	#use fetchall() if you are expecting more than 1 data row
-	cursor.close()
-	error = None
-	if(data):
-		#creates a session for the the user
-		#session is a built in
-		session['username'] = username
-		return redirect(url_for('home'))
-	else:
-		#returns an error message to the html page
-		error = 'Invalid login or username'
-		return render_template('login.html', error=error)
+# 	#cursor used to send queries
+# 	cursor = conn.cursor()
+# 	#executes query
+# 	query = "SELECT * FROM user WHERE username = '{}' and password = '{}'"
+# 	cursor.execute(query.format(username, password))
+# 	#stores the results in a variable
+# 	data = cursor.fetchone()
+# 	#use fetchall() if you are expecting more than 1 data row
+# 	cursor.close()
+# 	error = None
+# 	if(data):
+# 		#creates a session for the the user
+# 		#session is a built in
+# 		session['username'] = username
+# 		return redirect(url_for('home'))
+# 	else:
+# 		#returns an error message to the html page
+# 		error = 'Invalid login or username'
+# 		return render_template('login.html', error=error)
+##################helper#############################
+def validate_email(email):
+    return '@' in email and len(email) >= 5
 
+def user_exists(email, cursor):
+    cursor.execute("""
+        SELECT email FROM (
+            SELECT email FROM customer
+            UNION ALL
+            SELECT email FROM booking_agent
+            UNION ALL
+            SELECT username FROM airline_staff
+        ) AS all_emails
+        WHERE email = %s
+    """, (email,))
+    return cursor.fetchone() is not None
+
+def handle_customer_registration(cursor, email, hashed_pw, form):
+    required_fields = ['name', 'phone', 'passport']
+    if not all(form.get(field) for field in required_fields):
+        flash("Missing required customer fields", "danger")
+        raise ValueError("Incomplete customer data")
+
+    cursor.execute("""
+        INSERT INTO customer (
+            email, name, password, phone_number, passport_number,
+            building_number, street, city, state, 
+            passport_expiration, passport_country, date_of_birth
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    """, (
+        email,
+        form['name'],
+        hashed_pw,
+        form['phone'],
+        form['passport'],
+        form.get('building', ''),
+        form.get('street', ''),
+        form.get('city', ''),
+        form.get('state', ''),
+        form.get('passport_expire', '2025-01-01'),  # 示例默认值
+        form.get('country', ''),
+        form.get('dob', '2000-01-01')
+    ))
+
+def handle_agent_registration(cursor, email, hashed_pw, form):
+    agent_id = form.get('agent_id')
+    if not agent_id:
+        flash("Agent ID required", "danger")
+        raise ValueError("Missing agent ID")
+
+    # 检查代理ID唯一性
+    cursor.execute("SELECT 1 FROM booking_agent WHERE booking_agent_id = %s", (agent_id,))
+    if cursor.fetchone():
+        flash("Agent ID already exists", "danger")
+        raise ValueError("Duplicate agent ID")
+
+    cursor.execute("""
+        INSERT INTO booking_agent (email, password, booking_agent_id)
+        VALUES (%s, %s, %s)
+    """, (email, hashed_pw, agent_id))
+
+def handle_staff_registration(cursor, email, hashed_pw, form, airlines):
+    required_fields = ['first_name', 'last_name', 'airline']
+    if not all(form.get(field) for field in required_fields):
+        flash("Missing required staff fields", "danger")
+        raise ValueError("Incomplete staff data")
+
+    if form['airline'] not in airlines:
+        flash("Invalid airline selection", "danger")
+        raise ValueError("Invalid airline")
+
+    # 插入员工数据
+    cursor.execute("""
+        INSERT INTO airline_staff (
+            username, password, first_name, last_name,
+            date_of_birth, airline_name
+        ) VALUES (%s, %s, %s, %s, %s, %s)
+    """, (
+        email,
+        hashed_pw,
+        form['first_name'],
+        form['last_name'],
+        form.get('dob', '1990-01-01'),
+        form['airline']
+    ))
+
+    # 处理权限
+    permissions = form.getlist('permissions')
+    if permissions:
+        cursor.executemany("""
+            INSERT INTO permission (username, permission_type)
+            VALUES (%s, %s)
+        """, [(email, perm) for perm in permissions])
 # #################################################################################################################
 @app.route('/register', methods=['GET', 'POST'])
 def register():
-     print("-------------------------------register------------------------------")
-     return render_template("register.html")
-# def register():
-#     def check_email_exists(email, cursor):
-#         query = """
-#         SELECT 1 FROM customer WHERE email = %s
-#         UNION
-#         SELECT 1 FROM booking_agent WHERE email = %s
-#         UNION
-#         SELECT 1 FROM airline_staff WHERE email = %s
-#         """
-#         cursor.execute(query, (email, email, email))
-#         return cursor.fetchone()
+    cursor = conn.cursor(dictionary=True)
+    
+    try:
+        # 获取航空公司列表
+        cursor.execute("SELECT airline_name FROM airline")
+        airlines = [row['airline_name'] for row in cursor.fetchall()]
+        
+        if request.method == 'POST':
+            form_type = request.form.get('form_type')
+            email = request.form.get('email', '').lower().strip()
+            password = request.form.get('password', '').strip()
 
-#     # try:
-#     a = 1
-#     if a==1 :
-#         cursor = conn.cursor(dictionary=True)
-
-#         cursor.execute("SELECT airline_name FROM airline")
-#         airlines = cursor.fetchall()
-
-#         if request.method == 'POST':
-#             form_type = request.form.get('form_type')
-#             # print(form_type)
-
-#             existing_email_query = """
-#                 SELECT 1 FROM customer WHERE email = %s
-#                 UNION
-#                 SELECT 1 FROM booking_agent WHERE email = %s
-#                 UNION
-#                 SELECT 1 FROM airline_staff WHERE email = %s
-#                 """
-
-#             if form_type == 'customer':
-#                 customer_email = request.form.get('customer_email').lower().split('@')[0] + '@' + request.form.get('customer_email').lower().split('@')[1]
-#                 customer_name = request.form.get('customer_name')
-#                 customer_password = request.form.get('customer_password')
-#                 customer_building_number = request.form.get('customer_building_number')
-#                 customer_street = request.form.get('customer_street')
-#                 customer_city = request.form.get('customer_city')
-#                 customer_state = request.form.get('customer_state')
-#                 customer_phone = request.form.get('customer_phone')
-#                 customer_passport = request.form.get('customer_passport')
-#                 customer_passport_expire = request.form.get('customer_passport_expire')
-#                 customer_nationality = request.form.get('customer_nationality')
-#                 customer_birthday = request.form.get('customer_birthday')
-#                 # print(customer_email, customer_name, customer_password) 
-
-#                 # 验证注册输入信息是否为空
-#                 if not all([
-#                     customer_email, customer_name, customer_password, 
-#                     customer_building_number, customer_street, customer_city, 
-#                     customer_state, customer_phone, customer_passport, 
-#                     customer_passport_expire, customer_nationality, customer_birthday
-#                 ]):
-#                     flash('All fields are required!', 'danger')
-#                     return redirect(url_for('register'))
-
-#                 # 检查是否已存在用户
-#                 if check_email_exists(customer_email, cursor):
-#                     flash('Email already exists!', 'danger')
-#                     return redirect(url_for('register'))
-
-#                 # 对密码进行加密
-#                 hashed_password = generate_password_hash(customer_password, method='pbkdf2:sha256')
-
-#                 # 将用户数据插入数据库
-#                 query = """
-#                 INSERT INTO customer (
-#                     email, name, password, building_number, street, city, state, phone_number, 
-#                     passport_number, passport_expiration, passport_country, date_of_birth
-#                 ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-#                 """
-
-#                 values = (customer_email, customer_name, hashed_password, customer_building_number, customer_street, customer_city, customer_state, customer_phone, customer_passport, customer_passport_expire, customer_nationality, customer_birthday)
-#                 cursor.execute(query, values)
-#                 conn.commit()
-#                 cursor.close()
-
-#                 flash('Registration successful! You can now log in.', 'success')
-#                 return redirect(url_for('register'))  # 注册成功后重定向到主页或其他页面
-            
-#             elif form_type == 'agent':
-#                 agent_email = request.form.get('agent_email').lower().split('@')[0] + '@' + request.form.get('agent_email').lower().split('@')[1]
-#                 agent_password = request.form.get('agent_password')
-#                 agent_id = request.form.get('agent_id')
-
-#                 if not all([agent_email, agent_password, agent_id]):
-#                     flash('All fields are required!', 'danger')
-#                     return redirect(url_for('register'))
+            # 基础验证
+            if not validate_email(email):
+                flash("Invalid email format", "danger")
+                return redirect(url_for('register'))
                 
-#                 if check_email_exists(agent_email, cursor):
-#                     flash('Email already exists!', 'danger')
-#                     return redirect(url_for('register'))
-                
-#                 # Check if agent_id already exists
-#                 existing_agent_id_query = "SELECT 1 FROM booking_agent WHERE booking_agent_id = %s"
-#                 cursor.execute(existing_agent_id_query, (agent_id,))
-#                 existing_agent_id = cursor.fetchone()
-#                 if existing_agent_id:
-#                     flash('Agent ID already exists!', 'danger')
-#                     return redirect(url_for('register'))
+            if len(password) < 6:
+                flash("Password must be at least 6 characters", "danger")
+                return redirect(url_for('register'))
 
-                
-#                 hashed_password = generate_password_hash(agent_password, method='pbkdf2:sha256')
-#                 query = """
-#                     INSERT INTO booking_agent (
-#                         email, password, booking_agent_id
-#                     ) VALUES (%s, %s, %s)
-#                     """
-#                 values = (agent_email, hashed_password, agent_id)
-#                 cursor.execute(query, values)
-#                 conn.commit()
-#                 cursor.close()
+            # 检查邮箱唯一性
+            if user_exists(email, cursor):
+                flash("Email already registered", "danger")
+                return redirect(url_for('register'))
 
-#                 flash('Booking Agent registration successful!', 'success')
-#                 return redirect(url_for('register'))
-            
-#             elif form_type == 'staff':
-#                 staff_email = request.form.get('staff_email').split('@')[0].lower()+ '@' + request.form.get('staff_email').lower().split('@')[1]
-#                 staff_password = request.form.get('staff_password')
-#                 staff_first_name = request.form.get('staff_first_name')
-#                 staff_last_name = request.form.get('staff_last_name')
-#                 staff_birthday = request.form.get('staff_birthday')
-#                 staff_airline_name = request.form.get('staff_airline_name')
-#                 # print(staff_airline_name)
+            # 密码哈希处理
+            hashed_pw = generate_password_hash(password)
 
-#                 if not all([staff_email, staff_password, staff_first_name, staff_last_name, staff_birthday, staff_airline_name]):
-#                     flash('All fields are required!', 'danger')
-#                     return redirect(url_for('register'))
-                
-#                 if check_email_exists(staff_email, cursor):
-#                     flash('Email already exists!', 'danger')
-#                     return redirect(url_for('register'))
-            
-#                 hashed_password = generate_password_hash(staff_password, method='pbkdf2:sha256')
-#                 query = """
-#                     INSERT INTO airline_staff (
-#                         email, password, first_name, last_name, date_of_birth, airline_name
-#                     ) VALUES (%s, %s, %s, %s, %s, %s)
-#                     """
-#                 values = (staff_email, hashed_password, staff_first_name, staff_last_name, staff_birthday, staff_airline_name)
-#                 cursor.execute(query, values)
-#                 conn.commit()
-#                 cursor.close()
+            # 处理不同用户类型
+            if form_type == 'customer':
+                handle_customer_registration(cursor, email, hashed_pw, request.form)
+            elif form_type == 'agent':
+                handle_agent_registration(cursor, email, hashed_pw, request.form)
+            elif form_type == 'staff':
+                handle_staff_registration(cursor, email, hashed_pw, request.form, airlines)
+            else:
+                flash("Invalid user type", "danger")
+                return redirect(url_for('register'))
 
-#                 flash('Airline Staff registration successful!', 'success')
-#                 return redirect(url_for('register'))
-            
-#     # except mysql.connector.Error as err:
-#     #         print(f"Database error: {err}")
-#     #         flash("Database error. Please try again later.", "error")
-#     #         return redirect(url_for('register'))
-#     # finally:
-#     #     if conn.is_connected():
-#     #         print('register-finally')
-#     #         cursor.close()
+            conn.commit()
+            flash("Registration successful!", "success")
+            return redirect(url_for('login'))
 
-#     return render_template('register.html',airlines=airlines)
-
-#Authenticates the register
-@app.route('/registerAuth', methods=['GET', 'POST'])
-def registerAuth():
-	#grabs information from the forms
-	username = request.form['username']
-	password = request.form['password']
-
-	#cursor used to send queries
-	cursor = conn.cursor()
-	#executes query
-	query = "SELECT * FROM user WHERE username = '{}'"
-	cursor.execute(query.format(username))
-	#stores the results in a variable
-	data = cursor.fetchone()
-	#use fetchall() if you are expecting more than 1 data row
-	error = None
-	if(data):
-		#If the previous query returns data, then user exists
-		error = "This user already exists"
-		return render_template('register.html', error = error)
-	else:
-		ins = "INSERT INTO user VALUES('{}', '{}')"
-		cursor.execute(ins.format(username, password))
-		conn.commit()
-		cursor.close()
-		return render_template('index.html')
+    except mysql.connector.Error as err:
+        conn.rollback()
+        flash(f"Database error: {err.msg}", "danger")
+    finally:
+        cursor.close()
+    
+    return render_template('register.html', airlines=airlines)
 
 # #################################################################################################################
 @app.route('/home')
@@ -540,6 +662,10 @@ def home():
         return redirect(url_for('agent_dashboard'))
     elif user['identity'] == 'staff':
         return redirect(url_for('staff_dashboard'))
+    elif not user:
+        ##回到上一个界面
+        return redirect(url_for('index'))
+
     # if not username:
     #     return redirect(url_for('index'))
     # # username = session['username']
@@ -600,7 +726,7 @@ def home():
 # #################################################################################################################
 @app.route('/logout')
 def logout():
-	session.pop('username')
+	session.pop('user')
 	return redirect('/')
 # #################################################################################################################
 @app.route('/about')
@@ -608,32 +734,32 @@ def about():
     return render_template('about.html')
 
 # #################################################################################################################
-@app.route('/upcoming-flights')
-def upcoming_flights():
-    print("----flight page----")
+# @app.route('/upcoming-flights')
+# def upcoming_flights():
+#     print("----flight page----")
 
-    # 利用 mysql.connector 获取数据库游标，设置 dictionary=True 以字典形式返回数据
-    cursor = conn.cursor(dictionary=True)
-    try:
-        # 根据 flight 表中 departure_time 过滤出当前时间之后的航班信息
-        query = """
-            SELECT airline_name, flight_num, departure_airport, departure_time, 
-                   arrival_airport, arrival_time, status 
-            FROM flight 
-            WHERE departure_time >= %s 
-            ORDER BY departure_time ASC
-        """
-        cursor.execute(query, (datetime.now(),))
-        # conn.commit()
+#     # 利用 mysql.connector 获取数据库游标，设置 dictionary=True 以字典形式返回数据
+#     cursor = conn.cursor(dictionary=True)
+#     try:
+#         # 根据 flight 表中 departure_time 过滤出当前时间之后的航班信息
+#         query = """
+#             SELECT airline_name, flight_num, departure_airport, departure_time, 
+#                    arrival_airport, arrival_time, status 
+#             FROM flight 
+#             WHERE departure_time >= %s 
+#             ORDER BY departure_time ASC
+#         """
+#         cursor.execute(query, (datetime.now(),))
+#         # conn.commit()
 
-        flights = cursor.fetchall()
-    except Exception as e:
-        print("查询错误：", e)
-        flights = []
-    finally:
-	    # conn.commit()
-        cursor.close()
-    return render_template('flights.html', flights=flights)
+#         flights = cursor.fetchall()
+#     except Exception as e:
+#         print("查询错误：", e)
+#         flights = []
+#     finally:
+# 	    # conn.commit()
+#         cursor.close()
+#     return render_template('flights.html', flights=flights)
 
 
 # app.secret_key = 'some key that you will never guess'

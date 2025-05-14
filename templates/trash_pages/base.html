@@ -1,40 +1,22 @@
-<!-- homepage.html -->
+<!-- templates/base.html -->
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>Flight Search</title>
+    <title>{% block title %}默认标题{% endblock %}</title>
+    <!-- 公共CSS/JS -->
+    <link rel="stylesheet" href="/static/css/main.css">
 </head>
 <body>
-  <h2>Search for Flights</h2>
-  <form action="/search" method="GET">
-    <label>From City:</label>
-    <input type="text" name="from_city" required><br>
-
-    <label>To City:</label>
-    <input type="text" name="to_city" required><br>
-
-    <label>Departure Date:</label>
-    <input type="date" name="departure_date"><br>
-
-    <label>Airline (optional):</label>
-    <input type="text" name="airline"><br>
-
-    <input type="submit" value="Search">
-  </form>
-
-  {% if flights %}
-    <h3>Search Results:</h3>
-    <ul>
-      {% for flight in flights %}
-        <li>
-          {{ flight['airline_name'] }} {{ flight['flight_num'] }} |
-          {{ flight['departure_airport'] }} → {{ flight['arrival_airport'] }} |
-          {{ flight['departure_time'] }} → {{ flight['arrival_time'] }} |
-          ${{ flight['base_price'] }} | Status: {{ flight['status'] }}
-        </li>
-      {% endfor %}
-    </ul>
-  {% endif %}
+    <!-- 导航栏 -->
+    <nav>...</nav>
+    
+    <!-- 内容占位区 -->
+    {% block content %}{% endblock %}
+    
+    <!-- 页脚 -->
+    <footer>...</footer>
+    
+    <!-- 公共脚本 -->
+    <script src="/static/js/main.js"></script>
 </body>
 </html>

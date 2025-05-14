@@ -15,28 +15,39 @@
   <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
+    <!-- 显示flash消息 -->
+    <div id="flash_message">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+                  {% for category, message in messages %}
+                      <div class="flash {{ category }}">{{ message }}</div>
+                  {% endfor %}
+          {% endif %}
+      {% endwith %}
+  </div>
 
 <!-- Navbar -->
 <nav class="navbar navbar-expand-lg px-4 fixed-top">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="/"><img src="/static/logo.png" alt="Logo"></a>
-        <!-- <button class="navbar-toggler" type="button">...</button> -->
-        <!-- <div class="collapse navbar-collapse"> -->
-            <div class="ms-auto d-flex align-items-center gap-3">
-                <!-- <a class="nav-link text-white" href="#">Language</a> -->
-                <a class="nav-link text-white" href="#">Find Bookings</a>
-                <a class="nav-link btn brn-primary text-white" href="/login">Log In | Sign Up</a>
-                <!-- <a class="btn btn-primary ms-2" href="/login" stlye="width:60%;">Log In | Sign Up</a> -->
+  <div class="container-fluid">
+    <a class="navbar-brand" href="/"><img src="/static/logo.png" alt="Logo"></a>
 
-              </div>
-                <!-- <span class="text-white small">当前用户：{{ username or "未登录" }}</span> -->
-
-                <!-- <a class="nav-link" href="#">Log In</a> -->
-                <!-- <a class="btn btn-primary ms-2" href="/login">Log In | Sign Up</a> -->
-
-        <!-- </div> -->
+    <div class="ms-auto d-flex align-items-center gap-3">
+      {% if session.user %}
+        {% set role = session.user.identity %}
+        <span class="text-white small text-muted">
+          Hi, {{ role.capitalize() }}
+        </span>
+        <a class="nav-link text-white" href="#">Find Bookings</a>
+        <a class="nav-link btn text-white" href="/logout">Log out</a>
+      {% else %}
+        <span class="text-white small text-muted">Hi, passerby</span>
+        <a class="nav-link text-white" href="#">Find Bookings</a>
+        <a class="nav-link btn text-white" href="/login">Log In | Sign Up</a>
+      {% endif %}
     </div>
+  </div>
 </nav>
+
 
 <!-- Hero Section -->
 <!-- <div class="hero">

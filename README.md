@@ -35,7 +35,49 @@
 ('MEX', 'Mexico City'),  -- 墨西哥
 ('CPT', 'Cape Town');  
 
+### airplane
+-- 原有飞机
+('Demo Airlines', 1, 150),
+('Demo Airlines', 2, 200),
+('Demo Airlines', 3, 5),
+('Sky High Airways', 101, 180),
+('Euro Connect', 1, 200),
+('Pacific Wings', 1, 180),
+-- 新增飞机
+('Global Airways', 1, 250),   -- 宽体客机
+('Global Airways', 2, 300),   
+('Asia Connect', 1, 220),     
+('Japan Airlines', 1, 280),   -- 补充日航飞机
+('Atlantic Wings', 1, 412),   -- A380
+('Polar Express', 1, 368),     -- 波音777-300ER
+('Oceania Air', 1, 329),       -- A350-1000
+('Sahara Airways', 1, 189),    -- 波音737 MAX 8
+('Nordic Connect', 1, 174);    -- A320neo
 
+### flight
+
+('Demo Airlines', 103, 'LAX', '2023-12-10 10:00:00', 'JFK', '2023-12-10 18:00:00', 350, 'on-time', 3),
+('Euro Connect', 501, 'LHR', '2023-12-12 12:00:00', 'DXB', '2023-12-12 20:00:00', 950, 'delayed', 1),
+-- 新增航班
+('Global Airways', 101, 'SFO', '2024-03-15 22:00:00', 'CDG', '2024-03-16 10:00:00', 1899, 'on-time', 1),
+('Polar Express', 201, 'HND', '2024-03-20 08:00:00', 'CPT', '2024-03-20 23:30:00', 3299, 'on-time', 1),
+('Oceania Air', 301, 'SYD', '2024-04-01 09:00:00', 'SFO', '2024-04-01 04:00:00', 2899, 'on-time', 1);
+
+
+### ticket
+(10005, 'Demo Airlines', 103),
+(10006, 'Demo Airlines', 103),
+-- 新增票务
+(30001, 'Global Airways', 101),
+(30002, 'Global Airways', 101),
+(30003, 'Polar Express', 201);
+
+
+### purchase
+(10005, 'customer1@test.com', 2001, '2023-11-05'),
+-- 新增记录
+(30001, 'customer1@test.com', NULL, '2024-02-28'),
+(30002, 'test02@customer.com', 2001, '2024-03-01');
 
 ### functions
 
