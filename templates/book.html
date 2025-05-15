@@ -16,7 +16,7 @@
 </nav>
 
 <div class="container mt-5">
-    {% with messages = get_flashed_messages(with_categories=true) %}
+    <!-- {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         {% for category, message in messages %}
           <div class="alert alert-{{ category }} alert-dismissible fade show">
@@ -25,10 +25,15 @@
           </div>
         {% endfor %}
       {% endif %}
-    {% endwith %}
+    {% endwith %} -->
 
     <h2 class="mt-4 mb-3">🛫 Confirm Booking</h2>
-
+    {% if error %}
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        {{ error }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endif %}
     <div class="card mb-4">
         <div class="card-body">
             <p><strong>Airline:</strong> {{ flight.airline_name }}</p>
@@ -39,6 +44,8 @@
             <p><strong>Arrival:</strong> {{ flight.arrival_time }}</p>
             <p><strong>Price:</strong> ${{ "%.2f"|format(flight.price) }}</p>
             <p><strong>Status:</strong> {{ flight.status }}</p>
+            <p class="text-muted">Available seats: {{ flight.remaining }}</p>
+
         </div>
     </div>
 

@@ -87,8 +87,11 @@ INSERT IGNORE INTO flight (
 ('Pacific Wings', 1011, 'DEL', '2025-07-06 09:00:00', 'IST', '2025-07-06 17:00:00', 799, 'delayed', 1),
 ('Demo Airlines', 1012, 'MEX', '2025-05-14 14:00:00', 'LHR', '2025-05-15 00:00:00', 1720, 'on-time', 1),
 ('Polar Express', 1013, 'GRU', '2025-07-10 20:00:00', 'SYD', '2025-07-11 08:00:00', 2100, 'on-time', 1),
-('Polar Express', 1014, 'CDG', '2025-05-31 09:00:00', 'HND', '2025-05-31 20:00:00', 471, 'cancelled', 1);
+('Polar Express', 1014, 'CDG', '2025-05-31 09:00:00', 'HND', '2025-05-31 20:00:00', 471, 'cancelled', 1),
 
+('Euro Connect', 1023, 'LHR', '2025-06-05 16:00:00', 'JFK', '2025-06-05 22:00:00', 1120, 'on-time', 0);
+
+-- Euro Connect
 -- ********** 票务数据（示例）********** --
 INSERT IGNORE INTO ticket (ticket_id, airline_name, flight_num) VALUES
 -- 原有票务
@@ -133,7 +136,12 @@ INSERT IGNORE INTO ticket (ticket_id, airline_name, flight_num) VALUES
 (50031, 'Polar Express', 1013),
 (50032, 'Euro Connect', 1010),
 (50033, 'Demo Airlines', 1006),
-(50034, 'Polar Express', 1014);
+(50034, 'Polar Express', 1014),
+(50035, 'Euro Connect', 1023),
+(50036, 'Euro Connect', 1023),
+(50037, 'Euro Connect', 1023),
+(50038, 'Euro Connect', 1023),
+(50039, 'Euro Connect', 1023);
 
 
 -- ********** 购买记录（示例）********** --
@@ -178,4 +186,10 @@ INSERT IGNORE INTO purchases (ticket_id, customer_email, booking_agent_id, purch
 (50031, 'customer1@test.com', 2001, '2025-04-17'),
 (50032, 'test02@customer.com', 3001, '2025-04-18'),
 (50033, 'customer1@test.com', 1001, '2025-04-20'),
-(50034, 'customer2@test.com', 3001, '2025-04-02');
+(50034, 'customer2@test.com', 3001, '2025-04-02'),
+
+(50035, 'customer1@test.com', NULL,'2025-04-02'),
+(50036, 'customer2@test.com', NULL,'2025-03-02'),
+(50037, 'customer3@test.com', NULL,'2025-04-01'),
+(50038, 'test01@customer.com', NULL,'2025-05-02'),
+(50039, 'test02@customer.com', NULL,'2025-04-03');

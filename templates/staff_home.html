@@ -57,20 +57,39 @@
     
           {% if flights %}
             <table class="table table-bordered table-striped mt-4">
-              <thead><tr><th>Flight #</th><th>From</th><th>To</th><th>Departure</th><th>Arrival</th><th>Status</th><th>Sold</th></tr></thead>
-              <tbody>
-                {% for f in flights %}
-                  <tr>
-                    <td>{{ f.flight_num }}</td>
-                    <td>{{ f.departure_airport }}</td>
-                    <td>{{ f.arrival_airport }}</td>
-                    <td>{{ f.departure_time }}</td>
-                    <td>{{ f.arrival_time }}</td>
-                    <td>{{ f.status }}</td>
-                    <td>{{ f.seats_sold }}</td>
-                  </tr>
-                {% endfor %}
-              </tbody>
+              <thead><tr><th>Flight #</th><th>From</th><th>To</th><th>Departure</th><th>Arrival</th><th>Status</th><th>Sold</th>
+                {% if 'Operator' in permissions %}<th>Action</th>{% endif %}
+                </tr></thead>
+                <tbody>
+                  {% for f in flights %}
+                    <tr>
+                      <td>{{ f.flight_num }}</td>
+                      <td>{{ f.departure_airport }}</td>
+                      <td>{{ f.arrival_airport }}</td>
+                      <td>{{ f.departure_time }}</td>
+                      <td>{{ f.arrival_time }}</td>
+                      <td>{{ f.status }}</td>
+                      <td>{{ f.seats_sold }}</td>
+                      {% if 'Operator' in permissions %}
+                      <td>
+                        <form method="POST" action="{{ url_for('change_status') }}" class="d-flex">
+                          <input type="hidden" name="flight_num" value="{{ f.flight_num }}">
+                          <input type="hidden" name="airline_name" value="{{ airline }}">
+                          <select name="new_status" class="form-select form-select-sm me-2" required>
+                            <option disabled selected>Change to...</option>
+                            <option value="on-time">on-time</option>
+                            <option value="delayed">delayed</option>
+                            <option value="in-progress">in-progress</option>
+                            <option value="arrived">arrived</option>
+                            <option value="cancelled">cancelled</option>
+                          </select>
+                          <button type="submit" class="btn btn-outline-primary btn-sm">✔</button>
+                        </form>
+                      </td>
+                      {% endif %}
+                    </tr>
+                  {% endfor %}
+                </tbody>                
             </table>
           {% else %}
             <table class="table table-bordered table-striped mt-4">

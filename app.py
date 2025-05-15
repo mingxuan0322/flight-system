@@ -165,44 +165,57 @@ def book_flight(airline_name, flight_num):
     customer_email = user['email']
     cursor = conn.cursor(dictionary=True)
 
-    # 查询航班信息
-    flight_query = """
-        SELECT * FROM flight 
-        WHERE airline_name = %s AND flight_num = %s
-    """
-    cursor.execute(flight_query, (airline_name, flight_num))
+    # 查询航班和剩余座位
+    cursor.execute("""
+        SELECT f.*, a.seats, COUNT(t.ticket_id) AS sold
+        FROM flight f
+        JOIN airplane a ON f.airline_name = a.airline_name AND f.airplane_id = a.airplane_id
+        LEFT JOIN ticket t ON f.airline_name = t.airline_name AND f.flight_num = t.flight_num
+        WHERE f.airline_name = %s AND f.flight_num = %s
+        GROUP BY f.flight_num
+    """, (airline_name, flight_num))
     flight = cursor.fetchone()
 
     if not flight:
         flash("Flight not found.", "danger")
         return redirect(url_for('search'))
 
-    if request.method == 'POST':
-        # 生成唯一 ticket_id（你可以换成自增或UUID）
-        import random
-        ticket_id = random.randint(100000, 999999)
+    flight['remaining'] = flight['seats'] - flight['sold']
 
-        try:
-            cursor.execute(
-                "INSERT INTO ticket (ticket_id, airline_name, flight_num) VALUES (%s, %s, %s)",
-                (ticket_id, airline_name, flight_num)
-            )
-            cursor.execute(
-                "INSERT INTO purchases (ticket_id, customer_email, purchase_date) VALUES (%s, %s, CURDATE())",
-                (ticket_id, customer_email)
-            )
-            conn.commit()
-            flash("Purchase successful!", "success")
-            return redirect(url_for('customer_dashboard'))
-        except Exception as e:
-            conn.rollback()
-            flash(f"Error procesasing your purchase: {e}", "danger")
-            return redirect(url_for('search'))
-        finally:
-            cursor.close()
+    # 是否已购买过
+    cursor.execute("""
+        SELECT COUNT(*) AS count FROM purchases p
+        JOIN ticket t ON p.ticket_id = t.ticket_id
+        WHERE t.airline_name = %s AND t.flight_num = %s AND p.customer_email = %s
+    """, (airline_name, flight_num, customer_email))
+    has_bought = cursor.fetchone()['count'] > 0
+
+    error = None  # <-- 初始化错误提示
+
+    if request.method == 'POST':
+        if flight['remaining'] < 1:
+            error = "⚠️ No seats available on this flight."
+        elif has_bought:
+            error = "⚠️ You have already purchased this flight."
+        else:
+            try:
+                cursor.execute("INSERT INTO ticket (airline_name, flight_num) VALUES (%s, %s)",
+                               (airline_name, flight_num))
+                ticket_id = cursor.lastrowid
+
+                cursor.execute("""
+                    INSERT INTO purchases (ticket_id, customer_email, purchase_date)
+                    VALUES (%s, %s, CURDATE())
+                """, (ticket_id, customer_email))
+                conn.commit()
+                flash("✅ Ticket purchased successfully!", "success")
+                return redirect(url_for('customer_dashboard'))
+            except Exception as e:
+                conn.rollback()
+                error = f"❌ Error: {str(e)}"
 
     cursor.close()
-    return render_template("book.html", flight=flight)
+    return render_template("book.html", flight=flight, has_bought=has_bought, error=error)
 
 #ok#################################################################################################################
 @app.route('/login', methods=['GET', 'POST'])
@@ -603,6 +616,35 @@ def staff_dashboard():
         top_agents=top_agents
     )
 
+@app.route('/change_status', methods=['POST'])
+@require_permission('Operator')
+def change_status():
+    airline_name = request.form.get('airline_name')
+    flight_num = request.form.get('flight_num')
+    new_status = request.form.get('new_status')
+
+    allowed_status = {'on-time', 'delayed', 'in-progress', 'arrived'}
+
+    if not airline_name or not flight_num or new_status not in allowed_status:
+        flash("Invalid status update request", "danger")
+        return redirect(url_for('staff_dashboard'))
+
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            UPDATE flight
+            SET status = %s
+            WHERE airline_name = %s AND flight_num = %s
+        """, (new_status, airline_name, flight_num))
+        conn.commit()
+        flash(f"Flight #{flight_num} status updated to '{new_status}'", "success")
+    except Exception as e:
+        conn.rollback()
+        flash(f"Failed to update status: {e}", "danger")
+    finally:
+        cursor.close()
+
+    return redirect(url_for('staff_dashboard'))
 
 # @app.route('/staff/grant_permission', methods=['POST'])
 # @require_permission('Admin')
@@ -692,69 +734,6 @@ def staff_dashboard():
 
 # 其他功能按类似模式实现...
 # #################################################################################################################
-
-@app.route('/purchase/<airline_name>/<int:flight_num>', methods=['POST'])
-def purchase_flight(airline_name, flight_num):
-    if 'user' not in session or session['user'].get('identity') != 'staff':
-        flash("Access denied", "danger")
-        return redirect(url_for('login'))
-    
-    user_type = session['user']['identity']
-    customer_email = None
-    agent_id = None
-    
-    if user_type == 'customer':
-        customer_email = session['user']['email']
-    elif user_type == 'agent':
-        agent_id = session['user']['agent_id']
-        customer_email = request.form.get('customer_email')  # 需要验证客户是否存在
-    else:
-        flash("Staff cannot purchase tickets", "danger")
-        return redirect(url_for('home'))
-
-    try:
-        cursor = conn.cursor()
-        # 开始事务
-        cursor.execute("START TRANSACTION")
-        
-        # 1. 获取飞机座位数
-        cursor.execute("""
-            SELECT a.seats - COUNT(t.ticket_id) AS remaining
-            FROM airplane a
-            LEFT JOIN flight f USING(airline_name, airplane_id)
-            LEFT JOIN ticket t USING(airline_name, flight_num)
-            WHERE f.airline_name = %s AND f.flight_num = %s
-            GROUP BY a.airplane_id
-            FOR UPDATE
-        """, (airline_name, flight_num))
-        remaining = cursor.fetchone()[0]
-        
-        if remaining < 1:
-            raise Exception("No seats available")
-
-        # 2. 生成票号（假设使用自增ID）
-        cursor.execute("INSERT INTO ticket (airline_name, flight_num) VALUES (%s, %s)",
-                     (airline_name, flight_num))
-        ticket_id = cursor.lastrowid
-
-        # 3. 记录购买
-        cursor.execute("""
-            INSERT INTO purchases 
-            (ticket_id, customer_email, booking_agent_id, purchase_date)
-            VALUES (%s, %s, %s, CURDATE())
-        """, (ticket_id, customer_email, agent_id))
-        
-        conn.commit()
-        flash("Purchase successful!", "success")
-    
-    except Exception as e:
-        conn.rollback()
-        flash(f"Purchase failed: {str(e)}", "danger")
-    finally:
-        cursor.close()
-    
-    return redirect(url_for('customer_dashboard' if user_type == 'customer' else 'agent_dashboard'))
-#Define route for purchase that allow user and agent finish the process
 
 # #################################################################################################################
 #Authenticates the login
